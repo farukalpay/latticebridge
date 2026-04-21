@@ -23,7 +23,9 @@
 \usepackage{hyperref}
 \usepackage{setspace}
 \usepackage{fancyhdr}
+\usepackage{flafter}
 \usepackage{longtable}
+\usepackage{needspace}
 \usepackage[section]{placeins}
 \usepackage{titlesec}
 \usepackage{url}
@@ -62,15 +64,15 @@ Bugra Kilictas\\
 \maketitle
 
 \begin{abstract}
-Structured sequence generation often requires a model to satisfy several input-derived constraints in a single output. Standard decoding methods may assign high probability to fluent continuations while placing low mass on continuations that realize all required anchors jointly. We study this regime as a rare-event sequential inference problem. \emph{LatticeBridge} combines a compact prefix language model, instance-compiled surface automata, and a twisted sequential Monte Carlo (SMC) decoder with resampling and multilevel splitting. The constraint representation remains input grounded and avoids manually curated topic lexicons or rule-based attribute classes. On 2{,}610 attainable validation tasks spanning CommonGen, E2E NLG, and WikiBio, the particle decoder improves exact anchor satisfaction and mean anchor coverage over greedy, beam-filtered, and best-of-$k$ ancestral baselines under a shared proposal model. The gains occur with measurable changes in overlap-based quality, so the evaluation reports coverage, overlap, runtime, and particle diagnostics jointly. The resulting benchmark exposes constrained generation as an inference problem with an observable operating frontier rather than as a benchmark-specific decoding trick.
+Structured sequence generation often requires a model to satisfy several input-derived constraints in a single output. Standard decoding methods may assign high probability to fluent continuations while placing low mass on continuations that realize all required anchors jointly. We study this regime as a rare-event sequential inference problem. \emph{LatticeBridge} combines a compact prefix language model, instance-compiled surface automata, and a twisted sequential Monte Carlo (SMC) decoder with resampling and multilevel splitting. The constraint representation is compiled from each input instance and does not rely on manually curated lexical classes. On 2{,}610 attainable validation tasks spanning CommonGen, E2E NLG, and WikiBio, the particle decoder improves exact anchor satisfaction and mean anchor coverage over greedy, beam-filtered, and best-of-$k$ ancestral baselines under a shared proposal model. Because improved constraint satisfaction can alter overlap-based quality, the evaluation reports coverage, overlap, runtime, and particle diagnostics jointly. The benchmark characterizes the satisfaction--overlap--latency frontier under a fixed proposal model.
 \end{abstract}
 
 \section{Introduction}
 Autoregressive models provide strong local continuation models, but structured generation often imposes conjunctive requirements that are not well represented by local likelihood alone. In data-to-text generation, for example, an output may need to realize several concepts or attribute values while remaining readable. A high-likelihood continuation can satisfy only a subset of those anchors, whereas a hard-constrained decoder can satisfy anchors at the cost of brittle search behavior. This paper treats the failure as a distributional issue: the set of fully satisfying continuations may have low probability under the base model even when the individual anchors are familiar.
 
-We therefore formulate structured decoding as inference over a sequence space with a rare accepting event. Sequential Monte Carlo methods are well suited to this formulation because they maintain a weighted population of partial hypotheses and provide explicit diagnostics for weight degeneracy and resampling. Recent work has connected twisted SMC to inference in language models \citep{zhao2024probabilistic,wu2024step}; related 2025--2026 work further studies learned twists and SMC-style decoding for constrained generation and model aggregation \citep{selfdistilled2025twisted,chan2026ensembling}. LatticeBridge focuses on a compact and reproducible setting: a small conditional proposal model, surface automata built from the input instance, and a particle decoder whose control signals remain inspectable.
+We therefore formulate structured decoding as inference over a sequence space with a rare accepting event. Sequential Monte Carlo methods are well suited to this formulation because they maintain a weighted population of partial hypotheses and provide explicit diagnostics for weight degeneracy and resampling. Recent work has connected twisted SMC to inference in language models \citep{zhao2024probabilistic,wu2024step}; related 2025--2026 work further studies learned twists and SMC-style decoding for constrained generation and model aggregation \citep{selfdistilled2025twisted,chan2026ensembling}. The present study isolates a compact conditional proposal model, surface automata compiled from each input instance, and a particle decoder with directly observable control signals.
 
-The implementation separates data adaptation, constraint compilation, proposal modeling, and evaluation. This separation is important because benchmark-specific lexical rules can otherwise enter the decoding algorithm unnoticed. We use the following design constraints:
+The implementation separates data adaptation, constraint compilation, proposal modeling, and evaluation. This separation prevents benchmark-specific lexical rules from entering the decoding algorithm unnoticed. We use the following design constraints:
 \begin{itemize}[leftmargin=1.5em]
   \item constraints must be \emph{instance driven}, extracted from the source example rather than from manually curated topical dictionaries,
   \item the library layer must stay reusable across tasks, while dataset adapters remain thin and explicit,
@@ -121,7 +123,20 @@ The computational question is how to approximate this bridge under a finite part
 \subsection{Instance-derived anchors}
 Anchor extraction is schema specific only in the sense that each dataset exposes a different structured input. CommonGen provides source concepts, E2E provides attribute values, and WikiBio provides titles plus infobox field values. After extraction, the inference layer receives only surface phrases and automaton states. No global topic lexicon, domain inventory, or manually curated attribute map enters the decoder.
 
-For evaluation, we retain source phrases that appear in at least one reference surface. This attainability criterion prevents impossible exact-match labels in the validation split while leaving the constraint set instance specific. The decoder itself does not use the references.
+Let $\mathcal{P}(x)$ denote the candidate phrase set exposed by the dataset adapter for source instance $x$. For benchmark construction, we first retain only phrases that are attested in at least one reference surface for the same instance. This attainability criterion prevents impossible exact-match labels in the validation split while leaving the constraint set instance specific. The decoder itself does not use the references.
+
+Among the attested candidates, LatticeBridge selects up to $K$ anchors by empirical source information score rather than adapter order. For an evaluation subset $\mathcal{D}$, define the source-side document frequency
+\[
+\widehat{\mathrm{df}}(c)
+=
+\sum_{x' \in \mathcal{D}}
+\mathbf{1}\{c \in \mathcal{P}(x')\},
+\qquad
+I(c)
+=
+\log \frac{|\mathcal{D}| + 1}{\widehat{\mathrm{df}}(c) + 1}.
+\]
+Each example uses the $K$ highest-scoring attested phrases. This ranking favors anchors that are empirically specific within the benchmark subset and removes the hidden dependence on schema field order.
 
 \subsection{Surface automata}
 Tokenization granularity can make phrase tracking unnecessarily brittle. A token-level automaton may fail when the tokenizer packs useful substrings into a single token. LatticeBridge therefore uses a surface automaton built over the emitted string fragments of tokenizer tokens. For each phrase $c_m$, we build a KMP-style automaton with states $0,\dots,\lvert c_m\rvert$ that track the currently matched character prefix. The product state of all such automata defines the global constraint lattice.
@@ -188,9 +203,9 @@ In extremely rare settings, even twisted proposals can fail to maintain enough m
 \[
 R_t^{(i)} = \log w_t^{(i)} - \lambda d(s_t^{(i)}),
 \]
-and a top-fraction elite set is replicated to refill the population. This rare-event device is related to adaptive multilevel splitting \citep{cerou2007adaptive}. It changes the estimator bias profile, so we treat it as a finite-budget search component rather than as an exact posterior sampler.
+and a top-fraction elite set is replicated to refill the population. This step is related to adaptive multilevel splitting \citep{cerou2007adaptive}. Because it changes the estimator under finite compute, we regard it as a search-allocation mechanism rather than as an exact posterior sampler.
 
-\begin{algorithm}[t]
+\begin{algorithm}[H]
 \caption{Twisted SMC bridge.}
 \label{alg:smc-bridge}
 \begin{algorithmic}[1]
@@ -238,7 +253,7 @@ The reported structured-generation benchmark uses three public datasets:
 \end{itemize}
 Dataset staging uses public dataset archives together with Hugging Face-hosted assets and tooling \citep{lhoest2021datasets}. The quantitative claims in this paper use the three benchmark datasets listed in Table~\ref{tab:datasets}.
 
-\begin{table}[tbp]
+\begin{table}[H]
 \centering
 \caption{Datasets used in the reported validation benchmark.}
 \label{tab:datasets}
@@ -274,8 +289,9 @@ The reported metrics are:
 
 The validation run covers 2{,}610 attainable constraint tasks: 993 from CommonGen, 996 from E2E NLG, and 621 from WikiBio. Each summary reports the sample mean and standard error over examples.
 
+\Needspace{20\baselineskip}
 \section{Experimental Setup}
-All reported training, validation, and synthetic stress runs were executed on Apple Silicon using the Metal backend (\texttt{mps}). This hardware detail matters only operationally: it determines the local throughput of the particle system, not the definition of the bridge itself. The main model was trained for several epochs with a batch size of 48 and a maximum sequence length of 160 tokens. The validation benchmark used:
+All reported training, validation, and synthetic stress runs were executed on Apple Silicon using the Metal backend (\texttt{mps}). The hardware specification is reported only to contextualize wall-clock measurements. The main model was trained for several epochs with a batch size of 48 and a maximum sequence length of 160 tokens. The validation benchmark used:
 \begin{itemize}[leftmargin=1.5em]
   \item beam size 6,
   \item best-of-16 ancestral sampling,
@@ -285,12 +301,13 @@ All reported training, validation, and synthetic stress runs were executed on Ap
   \item ESS resampling threshold $0.5P$, splitting interval 12, and elite fraction 0.2.
 \end{itemize}
 
-These settings define a fixed local-compute budget for comparing the four decoding methods. The complete run configuration is stored in \texttt{results/benchmark\_structured\_validation/validation\_config.json}.
+These settings define a fixed local-compute budget for comparing the four decoding methods. The complete run configuration is stored in \path{results/benchmark_structured_validation/validation_config.json}.
 
+\Needspace{22\baselineskip}
 \section{Training Dynamics and Operating Frontier}
-Table~\ref{tab:training-loss} reports the optimization trace for the prefix model, and Figure~\ref{fig:training-curve} plots the same losses. The loss trace does not by itself certify convergence, but it is sufficient to rule out a grossly unstable proposal model.
+Table~\ref{tab:training-loss} reports the optimization trace for the prefix model, and Figure~\ref{fig:training-curve} plots the same losses. The loss trajectory is monotone over the reported epochs and supports the use of a fixed shared checkpoint for all decoding comparisons.
 
-\begin{table}[tbp]
+\begin{table}[H]
 \centering
 \caption{Epoch-wise optimization trace for the compact prefix model.}
 \label{tab:training-loss}
@@ -298,17 +315,18 @@ Table~\ref{tab:training-loss} reports the optimization trace for the prefix mode
 \toprule
 Epoch & Train loss & Validation loss \\
 \midrule
-1 & 3.993 & 4.035 \\
-2 & 2.980 & 3.756 \\
-3 & 2.673 & 3.592 \\
-4 & 2.455 & 3.478 \\
+1 & 4.574 & 3.992 \\
+2 & 3.577 & 3.676 \\
+3 & 3.263 & 3.498 \\
+4 & 3.064 & 3.386 \\
+5 & 2.917 & 3.326 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The harder failure mode is combinatorial rather than merely lexical. The proposal model often emits individual anchors, but standard decoding under-explores continuations that realize several anchors jointly. The particle bridge is designed to probe that regime under a fixed proposal model.
+Across datasets, the shared proposal model often realizes individual anchors without reliably realizing several anchors jointly under standard decoding. The comparison therefore isolates how the inference procedure changes the operating point of a fixed conditional model.
 
-Figure~\ref{fig:coverage-runtime} gives a budget-oriented summary. On CommonGen, twisted SMC obtains substantially higher coverage and exact success than the tested baselines while remaining below the best-of-16 ancestral runtime. On E2E, twisted SMC improves exact success and coverage over greedy and beam filtering, and it obtains higher coverage than best-of-16 ancestral sampling at lower mean latency. We therefore report runtime together with coverage rather than treating satisfaction as an isolated metric.
+Figure~\ref{fig:coverage-runtime} gives a budget-oriented summary. On CommonGen, twisted SMC obtains substantially higher coverage and exact success than the tested baselines while remaining below the best-of-16 ancestral runtime. On E2E, twisted SMC improves exact success and coverage over greedy and beam filtering, and it obtains higher coverage than best-of-16 ancestral sampling at lower mean latency. On WikiBio, exact acceptance remains rare for all methods, but twisted SMC still produces the widest coverage margin. We therefore report runtime together with coverage rather than treating satisfaction as an isolated metric.
 
 \begin{figure}[tbp]
   \centering
@@ -327,56 +345,52 @@ Figure~\ref{fig:coverage-runtime} gives a budget-oriented summary. On CommonGen,
 
 \section{Results on Structured Generation}
 \subsection{CommonGen}
-Table~\ref{tab:main-results} shows the main validation result. On CommonGen, greedy, beam-filtered, and best-of-16 ancestral decoding do not produce any exact three-anchor successes in the 500-task validation subset. Twisted SMC raises exact success to $0.668\pm0.021$ and mean coverage to $0.869\pm0.009$. ROUGE-L is below greedy but comparable to beam filtering, indicating that the bridge reaches the constrained region without fully solving fluency under the compact proposal.
+Table~\ref{tab:main-results} shows the main validation result. On CommonGen, greedy, beam-filtered, and best-of-16 ancestral decoding do not produce exact three-anchor successes in the reported validation set. Twisted SMC reaches $0.648\pm0.015$ exact success and $0.859\pm0.007$ mean coverage, while ROUGE-L remains close to the lexical baselines.
 
 \subsection{E2E NLG}
-On E2E, the base model already copies many structured attributes. Greedy decoding reaches $0.111\pm0.014$ exact success and $0.662\pm0.007$ coverage; beam filtering improves both slightly. Best-of-16 ancestral sampling reaches $0.407\pm0.022$ exact success. Twisted SMC obtains the highest exact success, $0.427\pm0.022$, and the highest coverage, $0.782\pm0.009$, with lower mean latency than best-of-16 ancestral sampling. Its ROUGE-L decreases relative to the copy-oriented baselines, so the table exposes the coverage--overlap trade-off directly.
+On E2E, the base model already copies a nontrivial fraction of attributes under greedy decoding. Twisted SMC nevertheless improves exact success to $0.397\pm0.016$ and coverage to $0.747\pm0.008$, exceeding greedy, beam filtering, and best-of-16 ancestral sampling while maintaining a lower mean latency than best-of-16 ancestral sampling.
 
-\begin{table}[tbp]
+\subsection{WikiBio}
+WikiBio introduces longer source serializations and more heterogeneous attribute values than the other two datasets. In this regime, exact satisfaction is difficult for every decoder, but twisted SMC still raises exact success to $0.019\pm0.006$ and mean coverage to $0.209\pm0.010$, compared with near-zero exact success and roughly $0.02$ coverage for the baselines.
+
+\begin{table}[H]
 \centering
 \small
-\caption{Validation benchmark over 996 attainable constraint tasks. Parenthesized values are standard errors. Bold marks the best success and coverage within each dataset.}
+\caption{Validation benchmark over 2{,}610 attainable constraint tasks. Parenthesized values are standard errors. Bold marks the best success and coverage within each dataset.}
 \label{tab:main-results}
 \begin{tabular}{llcccc}
 \toprule
 Dataset & Method & Success & Coverage & ROUGE-L & Runtime (s) \\
 \midrule
 \multirow{4}{*}{CommonGen}
-& Greedy & 0.000 (0.000) & 0.049 (0.005) & \textbf{0.252} (0.005) & 0.018 \\
-& Beam filter & 0.000 (0.000) & 0.041 (0.005) & 0.223 (0.004) & 0.058 \\
-& Best-of-16 ancestral & 0.000 (0.000) & 0.023 (0.004) & 0.179 (0.004) & 0.605 \\
-& Twisted SMC & \textbf{0.668} (0.021) & \textbf{0.869} (0.009) & 0.220 (0.004) & 0.348 \\
+& Greedy & 0.000 (0.000) & 0.025 (0.003) & 0.222 (0.003) & 0.027 \\
+& Beam filter & 0.000 (0.000) & 0.036 (0.003) & 0.183 (0.003) & 0.082 \\
+& Best-of-16 ancestral & 0.000 (0.000) & 0.016 (0.002) & 0.169 (0.003) & 0.697 \\
+& Twisted SMC & \textbf{0.648} (0.015) & \textbf{0.859} (0.007) & 0.217 (0.003) & 0.403 \\
 \midrule
 \multirow{4}{*}{E2E NLG}
-& Greedy & 0.111 (0.014) & 0.662 (0.007) & 0.460 (0.007) & 0.059 \\
-& Beam filter & 0.139 (0.016) & 0.676 (0.008) & \textbf{0.476} (0.007) & 0.212 \\
-& Best-of-16 ancestral & 0.407 (0.022) & 0.709 (0.013) & 0.381 (0.006) & 0.686 \\
-& Twisted SMC & \textbf{0.427} (0.022) & \textbf{0.782} (0.009) & 0.226 (0.004) & 0.314 \\
+& Greedy & 0.149 (0.011) & 0.561 (0.008) & 0.434 (0.005) & 0.060 \\
+& Beam filter & 0.252 (0.014) & 0.611 (0.009) & 0.442 (0.005) & 0.214 \\
+& Best-of-16 ancestral & 0.370 (0.015) & 0.601 (0.011) & 0.376 (0.004) & 0.660 \\
+& Twisted SMC & \textbf{0.397} (0.016) & \textbf{0.747} (0.008) & 0.282 (0.003) & 0.520 \\
+\midrule
+\multirow{4}{*}{WikiBio}
+& Greedy & 0.000 (0.000) & 0.022 (0.004) & 0.201 (0.004) & 0.150 \\
+& Beam filter & 0.000 (0.000) & 0.021 (0.004) & 0.178 (0.004) & 0.324 \\
+& Best-of-16 ancestral & 0.003 (0.002) & 0.023 (0.004) & 0.163 (0.004) & 0.762 \\
+& Twisted SMC & \textbf{0.019} (0.006) & \textbf{0.209} (0.010) & 0.128 (0.004) & 0.790 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.96\textwidth]{common_gen_benchmark.png}
-  \caption{CommonGen validation benchmark by decoder.}
-  \label{fig:commongen-bars}
-\end{figure}
-
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.96\textwidth]{e2e_nlg_benchmark.png}
-  \caption{E2E NLG validation benchmark by decoder.}
-  \label{fig:e2e-bars}
-\end{figure}
 \FloatBarrier
 
 \subsection{Interpretation}
 The validation results support three observations:
 \begin{enumerate}[leftmargin=1.5em]
   \item the proposal model can realize many anchors but does not reliably combine them under standard decoding,
-  \item SMC reweighting, resampling, and splitting increase exact satisfaction and mean coverage under the same checkpoint,
-  \item the bridge changes the operating point rather than dominating every metric: coverage rises, while ROUGE-L depends on how much the baseline already copies the structured input.
+  \item SMC reweighting, resampling, and splitting increase exact satisfaction and mean coverage under the same checkpoint across three different structured-generation regimes,
+  \item the bridge changes the operating point rather than dominating every metric: coverage rises substantially, while ROUGE-L depends on how much the baseline already copies the structured input.
 \end{enumerate}
 
 \section{Synthetic Rare-Event Scaling}
@@ -384,7 +398,7 @@ The implementation also includes a synthetic rare-event lab for controlled parti
 
 The three probe runs are summarized in Table~\ref{tab:mps-probes}. The exact acceptance estimate drops sharply with probe difficulty, while runtime rises and mean ESS remains in the thousands. The synthetic study is included to expose numerical scaling of the bridge under controlled barrier growth.
 
-\begin{table}[tbp]
+\begin{table}[H]
 \centering
 \caption{Synthetic probe results from the compatibility launcher.}
 \label{tab:mps-probes}
@@ -426,7 +440,7 @@ where $h_t$ is the recurrent hidden state and $s_t$ is the constraint state. The
 \[
 q_t(\cdot \mid z_t) = \mathcal{T}_{\tau}\!\left(p_\theta(\cdot \mid z_t), d(s_t)\right).
 \]
-This viewpoint determines which diagnostics are reported. Effective sample size measures degeneracy in the weighted particle approximation, acceptance mass estimates how much probability remains on accepting states, and runtime quantifies the hardware cost of applying the control law. Recent constrained decoding work on accelerator-friendly automata and trie vectorization \citep{su2026vectorizing} is relevant to this systems layer, while language-model SMC work \citep{zhao2024probabilistic,wu2024step} provides the probabilistic inference background.
+Under this interpretation, the reported diagnostics follow directly from the controlled particle dynamics. Effective sample size measures degeneracy in the weighted particle approximation, acceptance mass estimates how much probability remains on accepting states, and runtime quantifies the hardware cost of applying the control law. Accelerator-oriented work on automata and trie vectorization \citep{su2026vectorizing} addresses the systems side of constrained decoding, while language-model SMC work \citep{zhao2024probabilistic,wu2024step} provides the probabilistic background.
 
 \section{Approximate Doob Control Analysis}
 \subsection{Exact Doob recursion}
@@ -478,7 +492,7 @@ This identity separates two sources of variance:
 In the validation benchmark $\tau=\lambda$, so the first term vanishes and the remaining correction is the proposal normalizer. The distance potential is not an estimate of the exact harmonic function; it is a deterministic control signal over the compiled automaton state.
 
 \subsection{Control-budget coupling}
-The coverage--latency trade-off can be formalized as a control problem with resource penalties. A useful surrogate objective is
+The coverage--latency trade-off can be formalized as a control problem with resource penalties. One surrogate objective for interpreting this trade-off is
 \[
 \mathcal{J}
 =
@@ -489,16 +503,16 @@ The coverage--latency trade-off can be formalized as a control problem with reso
 \sum_{t=1}^{T}
 \mathbb{E}\!\left[\frac{P}{\mathrm{ESS}_t}-1\right]_+,
 \]
-where $\mathrm{cov}(y_{1:T})$ is anchor coverage, $P$ is the particle count, and the last term penalizes degeneracy. The current implementation does not optimize this objective directly; it is used to interpret the reported coverage, latency, and ESS diagnostics under a common resource-sensitive criterion.
+where $\mathrm{cov}(y_{1:T})$ is anchor coverage, $P$ is the particle count, and the last term penalizes degeneracy. The current implementation does not optimize this objective directly; instead, it provides a compact criterion for interpreting the reported coverage, latency, and ESS diagnostics under a common resource-sensitive view.
 
-This view also distinguishes resampling from splitting. Resampling redistributes probability mass when normalized weights degenerate. Splitting reallocates finite compute toward high-scoring branches when acceptance becomes too rare under the current proposal. Both operations are therefore interpreted as control actions over a finite particle budget.
+This view also distinguishes resampling from splitting. Resampling redistributes probability mass when normalized weights degenerate. Splitting reallocates finite compute toward high-scoring branches when acceptance becomes too rare under the current proposal. Both operations act on the same finite particle budget, but they address different numerical pathologies.
 
 \section{Related Work}
 \subsection{Structured data-to-text generation}
 CommonGen \citep{lin2020commongen}, E2E NLG \citep{novikova2017e2e,dusek2019semantic}, and WikiBio \citep{lebret2016generating} are canonical benchmarks for testing whether a system can convert structured inputs into faithful text. Much work in this space focuses on architecture and pretraining rather than on the inference problem that appears after a model has already been trained.
 
 \subsection{Constrained decoding}
-Lexically constrained beam search \citep{hokamp2017lexically,post2018fast}, lookahead-based constrained decoding \citep{lu2022neurologic}, search-oriented inference-time scaling such as A*-decoding \citep{chatziveroglou2025astar}, and retrieval-constrained systems such as trie-based decoders \citep{su2026vectorizing} all address subsets of the same issue: how to keep decoding inside a constrained region without destroying throughput. Our work differs in using a particle system that explicitly represents multiple partial trajectories and their weights.
+Lexically constrained beam search \citep{hokamp2017lexically,post2018fast}, lookahead-based constrained decoding \citep{lu2022neurologic}, search-oriented inference-time scaling such as A*-decoding \citep{chatziveroglou2025astar}, draft-conditioned or mixed natural/structured decoding \citep{reddy2026draft,nguyen2026thinking}, and retrieval-constrained systems such as trie-based decoders \citep{su2026vectorizing} all address subsets of the same issue: how to keep decoding inside a constrained region without destroying throughput. Our work differs in using a particle system that explicitly represents multiple partial trajectories and their weights.
 
 \subsection{Controlled language generation}
 Methods such as PPLM \citep{dathathri2020pplm} and DExperts \citep{liu2021dexperts} alter decoding through gradients, auxiliary models, or expert/anti-expert logits. These methods are powerful but often depend on extra control models or attribute classifiers. LatticeBridge instead relies on instance-provided anchors and automaton geometry.
@@ -515,12 +529,12 @@ The same checkpoint and tokenizer are used by all four decoders. Candidate selec
 \]
 so satisfaction is primary, model score is secondary, and reference overlap is used only to break remaining ties. This policy is applied uniformly to beam filtering, ancestral sampling, and SMC outputs.
 
-For the SMC decoder, the validation run also records mean ESS, resampling count, acceptance mass, and realized generation length. On CommonGen, the mean ESS is 71.65 for 96 particles and the mean acceptance mass is 0.856. On E2E NLG, the mean ESS is 57.36 and the acceptance mass is 0.044, matching the lower exact-success margin in Table~\ref{tab:main-results}. These diagnostics make particle degeneracy visible rather than inferring it from coverage alone.
+For the SMC decoder, the validation run also records mean ESS, resampling count, acceptance mass, and realized generation length. On CommonGen, the mean ESS is 67.71 for 96 particles and the mean acceptance mass is 0.823. On E2E NLG, the mean ESS is 59.30 and the acceptance mass is 0.186. On WikiBio, the mean ESS is 52.43 and the acceptance mass is 0.032, reflecting the hardest rare-event regime in the benchmark. These diagnostics make particle degeneracy visible rather than inferring it from coverage alone.
 
 \section{Conclusion}
-LatticeBridge treats faithful structured sequence synthesis as sequential rare-event inference rather than as a minor variant of ordinary decoding. The implementation combines a compact prefix model, surface automata, twisted SMC, and multilevel splitting in a form that keeps the control mechanism observable. In the multi-dataset validation benchmark, the bridge improves exact satisfaction and coverage relative to standard decoders while making the associated overlap and latency trade-offs explicit. The synthetic probe family complements the benchmark by exposing how acceptance barriers, ESS, and runtime evolve under controlled scaling.
+LatticeBridge treats faithful structured sequence synthesis as sequential rare-event inference. The implementation combines a compact prefix model, surface automata, twisted SMC, and multilevel splitting in a form that keeps the control mechanism observable. In the multi-dataset validation benchmark, the bridge improves exact satisfaction and coverage relative to standard decoders while making the associated overlap and latency trade-offs explicit. The synthetic probe family complements the benchmark by exposing how acceptance barriers, ESS, and runtime evolve under controlled scaling.
 
-The main contribution is the controlled decomposition of the problem: input-derived constraints, a reusable automaton interface, explicit particle diagnostics, and benchmark files that report the quality--coverage--runtime trade-off under a fixed proposal model.
+The resulting system provides a reusable automaton interface, explicit particle diagnostics, and benchmark files that expose the quality--coverage--runtime trade-off under a fixed proposal model.
 
 \appendix
 
@@ -544,14 +558,14 @@ The current checkpoint uses a 256-dimensional embedding, a 384-dimensional GRU h
 Greedy, beam-filtered, best-of-$k$, and twisted SMC all share the same prefix model. The only difference is how they explore the continuation space and how aggressively they bias toward acceptance. This makes the comparison cleaner than comparing distinct base models.
 
 \section{Evaluation Scope}
-The evaluation uses surface constraints rather than semantic classifiers, entailment models, or instruction-tuned judges. This choice narrows the claim: the paper evaluates exact realization of input-derived anchors, not semantic equivalence. The narrower setting is useful because it gives an unambiguous accepting event for rare-event inference and avoids introducing a second learned model as the evaluator.
+The evaluation is defined with respect to exact realization of input-derived anchors. This choice yields an explicit accepting event together with a transparent transition system over compiled surface automata. The reported results should therefore be interpreted as measurements of anchor-faithful generation rather than as claims about broader semantic adequacy.
 
-Surface automata are weaker than semantic validators, but they are portable across datasets and make the acceptance state explicit. This is the appropriate abstraction for the present study because the decoder only needs an acceptance lattice and a transition function; dataset-specific schema handling remains outside the inference core.
+The abstraction is intentionally narrow: it supplies an acceptance lattice that is shared across datasets while keeping schema-specific processing outside the inference core.
 
 \section{Budget-Normalized Diagnostics}
-Table~\ref{tab:efficiency-deltas} reports coverage and success lift relative to greedy decoding, normalized by additional runtime. On CommonGen, twisted SMC is the only tested method that reaches exact success. On E2E, best-of-16 ancestral sampling and twisted SMC both improve exact success, while twisted SMC gives the larger coverage lift at lower mean latency.
+Table~\ref{tab:efficiency-deltas} reports coverage and success lift relative to greedy decoding, normalized by additional runtime. On CommonGen, twisted SMC is the only tested method that reaches exact success. On E2E, best-of-16 ancestral sampling and twisted SMC both improve exact success, while twisted SMC gives the larger coverage lift at lower mean latency. On WikiBio, exact gains remain small, but the coverage lift of twisted SMC is much larger than that of the baselines.
 
-\begin{table}[tbp]
+\begin{table}[H]
 \centering
 \caption{Budget-normalized lift relative to greedy decoding. Positive values indicate improvement beyond the greedy baseline.}
 \label{tab:efficiency-deltas}
@@ -560,14 +574,19 @@ Table~\ref{tab:efficiency-deltas} reports coverage and success lift relative to 
 Dataset & Method & $\Delta$ Success & $\Delta$ Coverage & Cov./extra s & Succ./extra s \\
 \midrule
 \multirow{3}{*}{CommonGen}
-& Beam filter & 0.000 & -0.007 & -0.19 & 0.00 \\
-& Best-of-16 ancestral & 0.000 & -0.025 & -0.04 & 0.00 \\
-& Twisted SMC & 0.668 & 0.820 & 2.48 & 2.02 \\
+& Beam filter & 0.000 & 0.011 & 0.20 & 0.00 \\
+& Best-of-16 ancestral & 0.000 & -0.009 & -0.01 & 0.00 \\
+& Twisted SMC & 0.648 & 0.835 & 2.22 & 1.72 \\
 \midrule
 \multirow{3}{*}{E2E NLG}
-& Beam filter & 0.028 & 0.013 & 0.09 & 0.18 \\
-& Best-of-16 ancestral & 0.296 & 0.047 & 0.08 & 0.47 \\
-& Twisted SMC & 0.317 & 0.119 & 0.47 & 1.24 \\
+& Beam filter & 0.103 & 0.050 & 0.33 & 0.67 \\
+& Best-of-16 ancestral & 0.222 & 0.040 & 0.07 & 0.37 \\
+& Twisted SMC & 0.248 & 0.186 & 0.40 & 0.54 \\
+\midrule
+\multirow{3}{*}{WikiBio}
+& Beam filter & 0.000 & -0.001 & 0.00 & 0.00 \\
+& Best-of-16 ancestral & 0.003 & 0.001 & 0.00 & 0.01 \\
+& Twisted SMC & 0.019 & 0.187 & 0.29 & 0.03 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -575,7 +594,7 @@ Dataset & Method & $\Delta$ Success & $\Delta$ Coverage & Cov./extra s & Succ./e
 \section{Example Diagnostics}
 \input{generated/example_diagnostics.tex}
 
-The examples show the same trade-off measured in Table~\ref{tab:main-results}: the particle decoder moves probability mass toward accepting strings, while the compact proposal can still assign higher local probability to more fluent but incomplete strings. This is why the paper reports both exact satisfaction and overlap-based quality.
+The examples show the same trade-off measured in Table~\ref{tab:main-results}: the particle decoder moves probability mass toward accepting strings, while the compact proposal can still assign higher local probability to more fluent but incomplete strings. Accordingly, the paper reports both exact satisfaction and overlap-based quality.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

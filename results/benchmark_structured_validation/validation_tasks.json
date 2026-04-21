@@ -1,0 +1,23 @@
+{
+  "common_gen": {
+    "candidate_records": 993.0,
+    "benchmark_tasks": 993.0,
+    "mean_required_phrases": 2.997985901309164,
+    "max_anchors": 3.0,
+    "min_anchors": 2.0
+  },
+  "e2e_nlg": {
+    "candidate_records": 1000.0,
+    "benchmark_tasks": 996.0,
+    "mean_required_phrases": 2.9738955823293174,
+    "max_anchors": 3.0,
+    "min_anchors": 2.0
+  },
+  "wiki_bio": {
+    "candidate_records": 750.0,
+    "benchmark_tasks": 621.0,
+    "mean_required_phrases": 2.718196457326892,
+    "max_anchors": 3.0,
+    "min_anchors": 2.0
+  }
+}

@@ -58,6 +58,27 @@ def _method_summary(rows) -> dict[str, float]:
     return summary
 
 
+def _write_snapshot(
+    *,
+    output_dir: Path,
+    split: str,
+    results: list[dict[str, object]],
+    summary: dict[str, dict[str, dict[str, float]]],
+    tasks: dict[str, dict[str, float]],
+    config: dict[str, object],
+    suffix: str = "",
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{split}_results{suffix}.json"
+    (output_dir / stem).write_text(json.dumps(results, indent=2), encoding="utf-8")
+    stem = f"{split}_summary{suffix}.json"
+    (output_dir / stem).write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    stem = f"{split}_tasks{suffix}.json"
+    (output_dir / stem).write_text(json.dumps(tasks, indent=2), encoding="utf-8")
+    stem = f"{split}_config{suffix}.json"
+    (output_dir / stem).write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+
 def run_benchmarks(
     *,
     processed_root: Path,
@@ -92,7 +113,30 @@ def run_benchmarks(
     for record in records:
         grouped[record.dataset_name].append(record)
 
-    results = []
+    config = {
+        "split": split,
+        "per_dataset_limit": per_dataset_limit,
+        "max_new_tokens": max_new_tokens,
+        "max_anchors": max_anchors,
+        "min_anchors": min_anchors,
+        "beam_size": beam_size,
+        "num_samples": num_samples,
+        "particles": particles,
+        "lambda_weight": lambda_weight,
+        "twist_scale": twist_scale,
+        "sample_temperature": sample_temperature,
+        "smc_temperature": smc_temperature,
+        "ess_threshold": ess_threshold,
+        "split_interval": split_interval,
+        "elite_fraction": elite_fraction,
+        "random_seed": random_seed,
+        "log_interval": log_interval,
+        "device": device.type,
+        "constraint_selection": "empirical_source_idf_attested_in_reference",
+        "candidate_selection": "accepting_then_log_score_then_rouge_l",
+    }
+
+    results: list[dict[str, object]] = []
     summary: dict[str, dict[str, dict[str, float]]] = {}
     task_summary: dict[str, dict[str, float]] = {}
     for dataset_name, dataset_records in grouped.items():
@@ -142,6 +186,24 @@ def run_benchmarks(
                 ]
             )
             if log_interval > 0 and (task_index % log_interval == 0 or task_index == len(tasks)):
+                partial_summary = dict(summary)
+                partial_by_method = defaultdict(list)
+                for result in dataset_results:
+                    partial_by_method[result.method].append(result)
+                partial_summary[dataset_name] = {
+                    method: _method_summary(rows)
+                    for method, rows in partial_by_method.items()
+                }
+                partial_results = results + [result.to_dict() for result in dataset_results]
+                _write_snapshot(
+                    output_dir=output_dir,
+                    split=split,
+                    results=partial_results,
+                    summary=partial_summary,
+                    tasks=task_summary,
+                    config=config,
+                    suffix="_partial",
+                )
                 print(f"[benchmark] {dataset_name}: {task_index}/{len(tasks)} tasks", flush=True)
 
         summary[dataset_name] = {}
@@ -151,31 +213,22 @@ def run_benchmarks(
             by_method[result.method].append(result)
         for method, rows in by_method.items():
             summary[dataset_name][method] = _method_summary(rows)
+        _write_snapshot(
+            output_dir=output_dir,
+            split=split,
+            results=results,
+            summary=summary,
+            tasks=task_summary,
+            config=config,
+            suffix="_partial",
+        )
 
-    (output_dir / f"{split}_results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-    (output_dir / f"{split}_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    (output_dir / f"{split}_tasks.json").write_text(json.dumps(task_summary, indent=2), encoding="utf-8")
-    config = {
-        "split": split,
-        "per_dataset_limit": per_dataset_limit,
-        "max_new_tokens": max_new_tokens,
-        "max_anchors": max_anchors,
-        "min_anchors": min_anchors,
-        "beam_size": beam_size,
-        "num_samples": num_samples,
-        "particles": particles,
-        "lambda_weight": lambda_weight,
-        "twist_scale": twist_scale,
-        "sample_temperature": sample_temperature,
-        "smc_temperature": smc_temperature,
-        "ess_threshold": ess_threshold,
-        "split_interval": split_interval,
-        "elite_fraction": elite_fraction,
-        "random_seed": random_seed,
-        "log_interval": log_interval,
-        "device": device.type,
-        "constraint_selection": "empirical_source_idf_attested_in_reference",
-        "candidate_selection": "accepting_then_log_score_then_rouge_l",
-    }
-    (output_dir / f"{split}_config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
+    _write_snapshot(
+        output_dir=output_dir,
+        split=split,
+        results=results,
+        summary=summary,
+        tasks=task_summary,
+        config=config,
+    )
     return {"results": results, "summary": summary, "tasks": task_summary}

@@ -13,10 +13,14 @@ Case & Anchors & Metrics & Baseline & LatticeBridge \\
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
 \endhead
-exact lift & cat, couch, pet & cov 0.00->1.00; r-l 0.38->0.27; mass 1.00 & A man is parked on a runway. & People dep on a couch that is located on the carpet \\
-exact lift & building, climb, side & cov 0.00->1.00; r-l 0.24->0.15; mass 1.00 & A room with a clock on the wall. & building b climb outside the city \\
-exact lift & car, drive, snow & cov 0.00->1.00; r-l 0.31->0.43; mass 1.00 & A man is a man in a field. & This snowboard is riding a car in the drive. \\
-coverage lift & compete, crowd, front & cov 0.00->0.67; r-l 0.17->0.33; mass 1.00 & a mountain arrivess & crowd genus in front of a compet eallowidming rev sherman with many items pounds . \\
+exact lift & cat, floor, sit & cov 0.33->1.00; r-l 0.50->0.63; mass 1.00 & A cat sleeping on a plate. & A cat restaurant that is sits on the floor. \\
+exact lift & top, walk, dog & cov 0.33->1.00; r-l 0.47->0.63; mass 1.00 & A dog is a bunch of a pizza. & A dog are walking on a top. \\
+exact lift & climb, wall, talk & cov 0.33->1.00; r-l 0.22->0.53; mass 1.00 & Someone shower curtains on the wall. & A white wall is climbing talking in a lake. \\
+coverage lift & bowl, food, eat & cov 0.00->0.67; r-l 0.25->0.57; mass 1.00 & A large room with a clock on a plate. & This vase at a bowl of food. \\
+coverage lift & spray, car, water & cov 0.00->0.67; r-l 0.31->0.46; mass 1.00 & A man is in the grass & water tees pray on the relessled carv \\
+coverage lift & cain, stroll, couple & cov 0.00->0.67; r-l 0.24->0.45; mass 1.00 & A man is a bunch of a bunch of a bunch of a bun. & A couple is speaker and a protest rollars and a caine \\
+near miss & sofa, hold, sit & cov 0.33->0.33; r-l 0.27->0.45; mass 1.00 & a woman is lying on the site & A man holds it is a street apples of a containers. \\
+exact lift & field, look, stand & cov 0.00->1.00; r-l 0.24->0.12; mass 1.00 & A woman is walking in the grass & A boy stands looks out field \\
 \bottomrule
 \end{longtable}
 
@@ -30,10 +34,35 @@ Case & Anchors & Metrics & Baseline & LatticeBridge \\
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
 \endhead
-exact lift & Clowns, English, high & cov 0.33->1.00; r-l 0.27->0.29; mass 1.00 & Bibimbap House serves English food in the riverside area near Clare Hall. It has a low ... & Clowns English food high customer rated worth bathroom near Clare Hall in the city ... \\
-exact lift & Cocum, Chinese, moderate & cov 0.33->1.00; r-l 0.23->0.25; mass 1.00 & Cocum is a coffee shop that serves Indian food in the high price range and is not kids ... & Cocum moderately Chinese food coffee shop, is family friendly and has a price range of ... \\
-exact lift & Cotto, restaurant, Chinese & cov 0.33->1.00; r-l 0.37->0.14; mass 1.00 & Cotto is a coffee shop that serves Indian food in the city centre near The Portland ... & Chinese restaurant Cotto near riverside and Indian food is The Cricketers. It has an ... \\
-coverage lift & Alimentum, no, Burger King & cov 0.00->0.67; r-l 0.17->0.32; mass 0.00 & The Green Man is a cheap, family friendly place with a price range of £20-25. & Alimentum has average ratings and is located near Burger King. Burger \\
+exact lift & Aromi, 5 out of 5, Chinese & cov 0.67->1.00; r-l 0.60->0.58; mass 0.00 & Aromi is a coffee shop that serves Indian food. It is not family-friendly and has a ... & Chinese food near Aromi, family friendly coffee shop is in the city centre area. It has ... \\
+exact lift & low, Fitzbillies, no & cov 0.33->1.00; r-l 0.35->0.58; mass 1.00 & Cocum coffee shop serves fast food and has an average customer rating and is not kid ... & Fitzbillies is an Italian coffee shop with low ratings and are not child friendly. \\
+exact lift & Alimentum, Burger King, riverside & cov 0.00->1.00; r-l 0.43->0.57; mass 0.00 & The Green Man is a family friendly place near the Rainbow Vegetarian Cafe. It is not ... & Alimentum riverside near Burger King on the riversideburger \\
+coverage lift & 5 out of 5, Fitzbillies, Chinese & cov 0.00->0.67; r-l 0.44->0.46; mass 0.00 & Cocum is a coffee shop that serves Indian food. It is not family-friendly and has a ... & Fitzbillies Chinese restaurant has a high price range and a customer rating of 1 out of 5 \\
+coverage lift & Cocum, 5 out of 5, cheap & cov 0.00->0.67; r-l 0.70->0.38; mass 0.00 & Wildwood is a coffee shop providing Indian food Its customer rating is 1 out of 5. & Cocum is cheaply priced French coffee shop, with a customer rating of 3 out of 5 \\
+coverage lift & restaurant, moderate, 1 out of 5 & cov 0.00->0.67; r-l 0.41->0.28; mass 0.00 & The Eagle is a non-family-friendly fast food coffee shop that is located in the city ... & restaurant moderately priced The Eagle on the riverside, has a low customer rating, is ... \\
+low-mass success & Cotto, The Portland Arms, city centre & cov 1.00->1.00; r-l 0.77->0.63; mass 0.00 & Cotto is a coffee shop providing Indian food in the city centre near The Portland Arms. & Cotto is a coffee shop in the city centre near The Portland Arms that provides fast food ... \\
+near miss & Fitzbillies, high, city centre & cov 1.00->0.67; r-l 0.36->0.71; mass 0.00 & Fitzbillies is a coffee shop providing Indian food in the high price range. It is ... & Fitzbillies is a highly rated Italian coffee shop located in City city \\
+\bottomrule
+\end{longtable}
+
+\subsection*{WikiBio}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endfirsthead
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endhead
+exact lift & defenseman, 1 & cov 0.50->1.00; r-l 0.31->0.35; mass 1.00 & joseph `` tom '' '' -lrb- born august 27 , 1988 -rrb- is a former australian rules ... & john brown -lrb- born april 25 , 1969 -rrb- is a former ice hockey defenseman who played ... \\
+exact lift & minnesota, republican & cov 0.00->1.00; r-l 0.23->0.29; mass 1.00 & joseph h. m. m. m. -lrb- born august 27 , 1988 -rrb- is a former australian rules ... & minnesota republicandr was member of the archares -lrb- lyflad -rrb- soccerback party . ... \\
+exact lift & argentine, 1944 & cov 0.00->1.00; r-l 0.33->0.26; mass 1.00 & sheriisiuta -lrb- born 9 november 1993 -rrb- is an irish cyclist . he competed in the ... & hugo argentinema -lrb- born 1944 -rrb- is a brawill-tonhup comedian and teacher . she ... \\
+coverage lift & 1779, thomas edwards, welsh & cov 0.00->0.67; r-l 0.39->0.44; mass 0.00 & richith rera bay -lrb- january 19 , 1858 -- september 16 , 1936 -rrb- was a scottish ... & thomas han thomas elliton -lrb- 3 june 1779 -- 1 september 1959 -rrb- , was a welsh ... \\
+coverage lift & centre forward, --, 1893 & cov 0.00->0.67; r-l 0.34->0.32; mass 0.00 & joseph `` tom '' '' -lrb- born september 27 , 1988 -rrb- is a former australian rules ... & martard svery -lrb- 1893 -- 1942 -rrb- was a british physicist . centre \\
+coverage lift & 1931, japanese, keiichiro takahara & cov 0.00->0.67; r-l 0.36->0.32; mass 0.00 & gregissi -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who ... & Japaneseishuko -lrb- born 1931 -rrb- is an english actress , known for his role asnia on ... \\
+near miss & 4 october 1967, torsten kracht & cov 0.00->0.00; r-l 0.36->0.39; mass 0.00 & nudankdik -lrb- ; born 16 june 1990 -rrb- is an american writer and musician . & portrasteven pool -lrb- born 4 october 1963 -rrb- is a perry ventor skater , and a ... \\
+exact lift & michigan, republican & cov 0.00->1.00; r-l 0.21->0.12; mass 1.00 & denon ` prisonton -lrb- born 1961 -rrb- is an indian politician , and a member of the ... & republican michigan gordon -lrb- born february 30 , 1945 -rrb- is an irish football player . \\
 \bottomrule
 \end{longtable}
 \endgroup

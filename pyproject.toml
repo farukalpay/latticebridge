@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "latticebridge"
 version = "0.1.0"
-description = "Rare-event controlled structured sequence synthesis on Apple Silicon."
+description = "Rare-event sequential inference for faithful structured sequence synthesis."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

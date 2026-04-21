@@ -2,114 +2,118 @@
 
 ![LatticeBridge banner](assets/latticebridge-banner.svg)
 
-LatticeBridge is a compact implementation of **rare-event inference for structured sequence generation**. It targets the regime where a conditional autoregressive model can produce fluent text, but assigns low probability to continuations that satisfy several input-derived anchors simultaneously. The implementation combines:
+LatticeBridge studies **faithful structured generation as a rare-event sequential inference problem**. The repository targets the regime in which a conditional language model can usually produce fluent text, but the probability mass assigned to continuations that satisfy several input-derived anchors at once is small. It implements a compact end-to-end stack for that regime:
 
-- a compact prefix language model trained for structured-to-text tasks
-- **surface automata** compiled directly from instance-provided anchors
-- **twisted sequential Monte Carlo** with resampling and multilevel splitting
-- an MPS-compatible synthetic scale lab for controlled rare-event workloads
+- a reusable **surface-automaton** constraint layer
+- a compact **prefix language model** for structured-to-text generation
+- a **twisted sequential Monte Carlo** decoder with resampling and multilevel splitting
+- a three-dataset benchmark over **CommonGen**, **E2E NLG**, and **WikiBio**
+- a manuscript, figures, diagnostics tables, and runnable benchmark artefacts
 
-Constraint handling is instance-driven. The decoder uses source-provided anchors and does not depend on global topic inventories or label maps.
+Dataset adapters expose source-side phrases; the inference code only sees anchors, automaton states, and model scores.
 
-Repository: <https://github.com/farukalpay/latticebridge>
+## Benchmark Scope
 
-## Method
+The reported structured validation benchmark covers **2,610 attainable tasks**:
 
-LatticeBridge treats constrained structured decoding as a sequential rare-event inference problem:
+- **993** CommonGen examples
+- **996** E2E NLG examples
+- **621** WikiBio examples
 
-1. serialize the structured source into a prefix
-2. compile input-derived anchors into a surface-level product automaton
-3. decode with a twisted SMC bridge that rewards progress toward acceptance
-4. report coverage, overlap quality, runtime, and particle diagnostics
+Each task uses up to three input-derived anchors that are attested in at least one reference surface. Among attested candidates, anchor selection is ranked by **empirical source information score**, not adapter field order. The benchmark reports:
 
-## Current Results
+- exact anchor satisfaction
+- mean anchor coverage
+- ROUGE-L and token-level overlap
+- runtime per example
+- particle diagnostics such as ESS, acceptance mass, and resampling count
 
-The validation benchmark in `results/benchmark_core_validation/validation_summary.json` covers 996 attainable constraint tasks: 500 CommonGen examples and 496 E2E NLG examples. All four decoders use the same compact prefix model and the same input-derived surface anchors. The benchmark runs on Apple Metal (`mps`) with beam size 6, best-of-16 ancestral sampling, 96 Twisted SMC particles, and a 64-token generation cap.
+Final aggregate metrics are written to:
+
+- `results/benchmark_structured_validation/validation_summary.json`
+- `results/benchmark_structured_validation/validation_tasks.json`
+- `results/benchmark_structured_validation/validation_config.json`
+- `results/benchmark_structured_validation/example_diagnostics.json`
+
+## Current Validation Snapshot
+
+![Coverage-runtime frontier](results/figures/coverage_runtime_frontier.png)
 
 ### CommonGen
 
 | Method | Success | Coverage | ROUGE-L | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.000 | 0.049 | **0.252** | 0.018 |
-| Beam Filter | 0.000 | 0.041 | 0.223 | 0.058 |
-| Best-of-16 Ancestral | 0.000 | 0.023 | 0.179 | 0.605 |
-| Twisted SMC | **0.668** | **0.869** | 0.220 | 0.348 |
+| Greedy | 0.000 | 0.025 | 0.222 | 0.027 |
+| Beam filter | 0.000 | 0.036 | 0.183 | 0.082 |
+| Best-of-16 ancestral | 0.000 | 0.016 | 0.169 | 0.697 |
+| Twisted SMC | **0.648** | **0.859** | 0.217 | 0.403 |
 
 ### E2E NLG
 
 | Method | Success | Coverage | ROUGE-L | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.111 | 0.662 | 0.460 | 0.059 |
-| Beam Filter | 0.139 | 0.676 | **0.476** | 0.212 |
-| Best-of-16 Ancestral | 0.407 | 0.709 | 0.381 | 0.686 |
-| Twisted SMC | **0.427** | **0.782** | 0.226 | 0.314 |
+| Greedy | 0.149 | 0.561 | 0.434 | 0.060 |
+| Beam filter | 0.252 | 0.611 | **0.442** | 0.214 |
+| Best-of-16 ancestral | 0.370 | 0.601 | 0.376 | 0.660 |
+| Twisted SMC | **0.397** | **0.747** | 0.282 | 0.520 |
 
-Interpretation:
+### WikiBio
 
-- Twisted SMC materially improves exact anchor satisfaction and average coverage under the same checkpoint.
-- On CommonGen, it is the only tested method with nonzero exact success across the 500-task validation subset.
-- On E2E NLG, it gives the highest coverage and success while running faster than best-of-16 ancestral sampling.
-- ROUGE-L should be read next to coverage; the bridge changes the operating point rather than optimizing a single metric.
-
-Generated figures:
-
-- ![CommonGen benchmark](results/figures/common_gen_benchmark.png)
-- ![E2E benchmark](results/figures/e2e_nlg_benchmark.png)
-- ![Coverage-runtime frontier](results/figures/coverage_runtime_frontier.png)
-- ![Training curve](results/figures/training_curve.png)
-- ![MPS scale probe](results/figures/mps_scale_probe.png)
-
-## MPS Scale Probes
-
-`latticebridge_synthetic_lab.py` runs a neutral synthetic rare-event systems lab. The following MPS runs were executed:
-
-| Scenario | Exact Accept | Relaxed Accept | Mean ESS | Runtime (s) |
+| Method | Success | Coverage | ROUGE-L | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
-| `conflict_probe`, `96/256/12/8192` | 0.0386 | 0.3419 | 5189.0 | 3.49 |
-| `scale_probe`, `128/320/16/16384` | 0.0122 | 0.2410 | 10348.7 | 19.38 |
-| `scale_probe`, `160/384/24/24576` | 0.000854 | 0.1690 | 15843.5 | 49.43 |
+| Greedy | 0.000 | 0.022 | **0.201** | 0.150 |
+| Beam filter | 0.000 | 0.021 | 0.178 | 0.324 |
+| Best-of-16 ancestral | 0.003 | 0.023 | 0.163 | 0.762 |
+| Twisted SMC | **0.019** | **0.209** | 0.128 | 0.790 |
 
-The heavy run shows barrier growth: runtime and ESS remain tractable on MPS while exact satisfaction decreases by nearly two orders of magnitude.
+The benchmark exposes a consistent operating pattern:
+
+- on CommonGen, twisted SMC is the only tested decoder with substantial exact success
+- on E2E NLG, twisted SMC gives the best exact success and the widest coverage margin
+- on WikiBio, exact satisfaction remains difficult for all methods, but twisted SMC still lifts mean coverage by an order of magnitude over the greedy baseline
 
 ## Quick Start
 
-### 1. Prepare the benchmark corpora
+### 1. Stage the datasets
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli prepare \
-  --manifest data/manifests/core_benchmark.json \
+  --manifest data/manifests/structured_benchmark.json \
   --cache-root data/cache \
-  --processed-root data/cache/processed_core \
-  --tokenizer-corpus data/cache/tokenizer_corpus_core.txt \
+  --processed-root data/cache/processed_structured \
+  --tokenizer-corpus data/cache/tokenizer_corpus_structured.txt \
   --dotenv .env
 ```
 
-`core_benchmark.json` stages the CommonGen and E2E corpora used by the reported validation benchmark. `datasets.json` also defines a WikiBio adapter for table-to-text experiments. Public downloads do not require a token, but `HF_TOKEN` can be supplied through `.env` for Hugging Face-hosted assets.
+The structured manifest stages CommonGen, E2E NLG, and WikiBio. Public downloads work without authentication, but `HF_TOKEN` can be provided through `.env` for Hugging Face-hosted assets.
 
-### 2. Train the prefix language model
+### 2. Train the proposal model
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli train \
-  --processed-root data/cache/processed_core \
-  --tokenizer-corpus data/cache/tokenizer_corpus_core.txt \
-  --tokenizer-path artifacts/tokenizer_core.json \
-  --checkpoint-dir artifacts/checkpoints_core \
+  --processed-root data/cache/processed_structured \
+  --tokenizer-corpus data/cache/tokenizer_corpus_structured.txt \
+  --tokenizer-path artifacts/tokenizer_structured.json \
+  --checkpoint-dir artifacts/checkpoints_structured \
   --device mps \
-  --epochs 4 \
+  --epochs 5 \
   --batch-size 48 \
-  --max-tokens 144
+  --max-tokens 160 \
+  --seed 13
 ```
 
-### 3. Run the validation benchmark
+`--device` may be switched to `cpu` or `cuda`. The paper uses the same checkpoint for all reported decoding methods.
+
+### 3. Run the structured validation benchmark
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli benchmark \
-  --processed-root data/cache/processed_core \
-  --tokenizer-path artifacts/tokenizer_core.json \
-  --checkpoint artifacts/checkpoints_core/best.pt \
-  --output-dir results/benchmark_core_validation \
+  --processed-root data/cache/processed_structured \
+  --tokenizer-path artifacts/tokenizer_structured.json \
+  --checkpoint artifacts/checkpoints_structured/best.pt \
+  --output-dir results/benchmark_structured_validation \
   --split validation \
-  --per-dataset-limit 500 \
+  --per-dataset-limit 1000 \
   --max-new-tokens 64 \
   --max-anchors 3 \
   --min-anchors 2 \
@@ -118,26 +122,42 @@ PYTHONPATH=src python3 -m latticebridge.cli benchmark \
   --particles 96 \
   --lambda-weight 2.0 \
   --twist-scale 2.0 \
+  --sample-temperature 0.95 \
+  --smc-temperature 0.9 \
   --ess-threshold 0.5 \
   --split-interval 12 \
   --elite-fraction 0.2 \
-  --sample-temperature 0.95 \
-  --smc-temperature 0.9 \
   --seed 13 \
   --device mps \
   --log-interval 50
 ```
 
+The benchmark now writes partial JSON snapshots during long runs, so intermediate progress is not lost if the process is interrupted.
+
 ### 4. Render summary figures
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli figures \
-  --summary-path results/benchmark_core_validation/validation_summary.json \
+  --summary-path results/benchmark_structured_validation/validation_summary.json \
   --output-dir results/figures \
-  --train-report artifacts/checkpoints_core/train_report.json
+  --train-report artifacts/checkpoints_structured/train_report.json
 ```
 
-### 5. Run the stress probes
+### 5. Build appendix diagnostics
+
+```bash
+PYTHONPATH=src python3 -m latticebridge.cli diagnostics \
+  --results-path results/benchmark_structured_validation/validation_results.json \
+  --config-path results/benchmark_structured_validation/validation_config.json \
+  --processed-root data/cache/processed_structured \
+  --tokenizer-path artifacts/tokenizer_structured.json \
+  --split validation \
+  --output-json results/benchmark_structured_validation/example_diagnostics.json \
+  --output-tex paper/generated/example_diagnostics.tex \
+  --per-dataset-examples 8
+```
+
+### 6. Run the synthetic rare-event stress probes
 
 ```bash
 python3 latticebridge_synthetic_lab.py \
@@ -175,36 +195,18 @@ python3 latticebridge_synthetic_lab.py \
 ## Repository Layout
 
 ```text
-assets/                     banner and README visuals
-data/manifests/             benchmark and dataset manifests
+assets/                     README visuals
+artifacts/                  tokenizer and checkpoint reports
+data/manifests/             dataset staging manifests
 paper/                      manuscript source and bibliography
-results/                    benchmark outputs, figures, and scale probe logs
-src/latticebridge/          library code
-  benchmarks/               generation runners and benchmark tasks
-  constraints/              token and surface automata
-  data/                     downloaders and dataset adapters
-  experiments/              prepare/train/benchmark/figure commands
-  lab/                      synthetic rare-event scale probes
-  models/                   tokenizer and prefix LM
+results/                    benchmark summaries, diagnostics, and figures
+src/latticebridge/          reusable library code
+tests/                      lightweight regression tests
 ```
 
-## Design Notes
+## Figures and Paper
 
-- **Constraint representation:** phrases are compiled into surface automata, not keyword classes.
-- **Control signal:** Twisted SMC uses distance-to-acceptance progress, resampling, and splitting. There is no hand-authored topic logic.
-- **Separation of concerns:** dataset adapters are thin and schema-aware; the inference library is reusable and dataset-agnostic.
-- **Apple Metal posture:** all reported training and stress runs target `mps`.
-
-## Validation Artifacts
-
-- `results/benchmark_core_validation/validation_summary.json` stores the aggregate benchmark metrics.
-- `results/benchmark_core_validation/validation_tasks.json` stores benchmark task counts and anchor counts.
-- `results/benchmark_core_validation/validation_config.json` stores the decoding configuration used for the reported run.
-- `results/figures/` stores the rendered benchmark and training figures used in the paper.
-
-## Paper
-
-The manuscript source lives under `paper/`. The compiled PDF is available at [`paper/latticebridge.pdf`](paper/latticebridge.pdf) and currently renders to 22 pages with 25 bibliography entries.
+The paper source is under `paper/`. The compiled manuscript lives at [`paper/latticebridge.pdf`](paper/latticebridge.pdf).
 
 To rebuild it:
 
@@ -212,3 +214,13 @@ To rebuild it:
 cd paper
 latexmk -pdf -interaction=nonstopmode -halt-on-error latticebridge.tex
 ```
+
+Benchmark-derived manuscript assets are stored alongside the repository:
+
+- `paper/generated/example_diagnostics.tex` is generated from benchmark outputs
+- `results/figures/` contains the PNG figures used by the manuscript
+- `results/benchmark_structured_validation/` contains the benchmark summary files cited in the text
+
+## Citation
+
+If you use the repository or manuscript, cite the paper metadata in [`CITATION.cff`](CITATION.cff).

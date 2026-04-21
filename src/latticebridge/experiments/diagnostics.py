@@ -4,6 +4,7 @@ from collections import defaultdict
 import json
 import re
 import textwrap
+import unicodedata
 from pathlib import Path
 
 from latticebridge.benchmarks.generation import build_benchmark_tasks
@@ -49,6 +50,7 @@ def _clip_text(text: str, width: int = 92) -> str:
     compact = _normalize_ws(text)
     if not compact:
         return "-"
+    compact = unicodedata.normalize("NFKD", compact).encode("ascii", "ignore").decode("ascii")
     return textwrap.shorten(compact, width=width, placeholder=" ...")
 
 
@@ -120,26 +122,28 @@ def _scenario_rank(record: dict[str, object]) -> tuple[float, ...]:
     scenario = str(record["scenario"])
     if scenario == "exact_lift":
         return (
+            float(record["smc_rouge_l"]),
+            float(record["smc_token_f1"]),
             float(record["coverage_gain"]),
-            float(record["smc_coverage"]),
             float(record["acceptance_mass"]),
         )
     if scenario == "coverage_lift":
         return (
             float(record["coverage_gain"]),
-            float(record["smc_coverage"]),
-            float(record["smc_rouge_l"]) - float(record["baseline_rouge_l"]),
+            float(record["smc_rouge_l"]),
+            float(record["smc_token_f1"]),
         )
     if scenario == "low_mass_success":
         return (
             -float(record["acceptance_mass"]),
-            float(record["smc_coverage"]),
-            float(record["coverage_gain"]),
+            float(record["smc_rouge_l"]),
+            float(record["smc_token_f1"]),
         )
     return (
-        float(record["coverage_gain"]),
+        float(record["smc_rouge_l"]),
+        float(record["smc_token_f1"]),
         -float(record["acceptance_mass"]),
-        float(record["smc_coverage"]),
+        float(record["coverage_gain"]),
     )
 
 
@@ -224,10 +228,12 @@ def _record_for_example(
         "baseline_success": bool(baseline["success"]),
         "baseline_coverage": float(baseline["coverage"]),
         "baseline_rouge_l": float(baseline["rouge_l"]),
+        "baseline_token_f1": float(baseline["token_f1"]),
         "smc_text": str(smc["text"]),
         "smc_success": bool(smc["success"]),
         "smc_coverage": float(smc["coverage"]),
         "smc_rouge_l": float(smc["rouge_l"]),
+        "smc_token_f1": float(smc["token_f1"]),
         "coverage_gain": float(smc["coverage"]) - float(baseline["coverage"]),
         "acceptance_mass": acceptance_mass,
         "mean_ess": mean_ess,

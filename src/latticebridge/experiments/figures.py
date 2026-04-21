@@ -16,6 +16,7 @@ METHOD_LABELS = {
 DATASET_LABELS = {
     "common_gen": "CommonGen",
     "e2e_nlg": "E2E NLG",
+    "wiki_bio": "WikiBio",
 }
 
 
@@ -61,7 +62,7 @@ def _render_dataset_bars(summary: dict, output_dir: Path) -> list[str]:
             axis.tick_params(axis="x", rotation=18)
             axis.grid(axis="y", alpha=0.2, linestyle="--")
         fig.suptitle(f"{dataset_label} validation benchmark", y=1.03, fontsize=13)
-        fig.tight_layout()
+        fig.tight_layout(rect=(0, 0, 1, 0.96))
         path = output_dir / f"{dataset_name}_benchmark.png"
         fig.savefig(path, dpi=220, bbox_inches="tight")
         plt.close(fig)
@@ -80,16 +81,12 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
         "ancestral_best_of_k": ("^", "#C16630"),
         "twisted_smc": ("D", "#8E4B63"),
     }
-    label_offsets = {
-        "greedy": (6, 6),
-        "beam_filter": (6, -10),
-        "ancestral_best_of_k": (6, 10),
-        "twisted_smc": (6, 6),
-    }
+    legend_handles = []
     for ax, dataset_name in zip(axes, dataset_names):
         methods = summary[dataset_name]
         runtimes = [methods[name]["runtime_seconds"] for name in _ordered_methods(methods)]
-        for method_name in _ordered_methods(methods):
+        method_names = _ordered_methods(methods)
+        for method_name in method_names:
             metrics = methods[method_name]
             marker, color = method_styles.get(method_name, ("o", "#444444"))
             ax.scatter(
@@ -113,13 +110,12 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
                 alpha=0.4,
                 capsize=3,
             )
-            ax.annotate(
-                METHOD_LABELS.get(method_name, method_name),
-                (metrics["runtime_seconds"], metrics["coverage"]),
-                xytext=label_offsets.get(method_name, (6, 5)),
-                textcoords="offset points",
-                fontsize=8,
-            )
+        if not legend_handles:
+            for method_name in method_names:
+                marker, color = method_styles.get(method_name, ("o", "#444444"))
+                legend_handles.append(
+                    ax.scatter([], [], s=92, color=color, marker=marker, label=METHOD_LABELS.get(method_name, method_name))
+                )
         ax.set_xlabel("Runtime per example (s)")
         ax.set_title(DATASET_LABELS.get(dataset_name, dataset_name))
         ax.set_xscale("log")
@@ -127,8 +123,15 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
         ax.set_ylim(0.0, 1.0)
         ax.grid(alpha=0.25, linestyle="--")
     axes[0].set_ylabel("Anchor coverage")
-    fig.suptitle("Coverage-runtime frontier", y=1.03, fontsize=13)
-    fig.tight_layout()
+    if legend_handles:
+        fig.legend(
+            handles=legend_handles,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.08),
+            ncol=min(4, len(legend_handles)),
+            frameon=False,
+        )
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     path = output_dir / "coverage_runtime_frontier.png"
     fig.savefig(path, dpi=220, bbox_inches="tight")
     plt.close(fig)
@@ -150,7 +153,7 @@ def _render_training_curve(train_report_path: Path, output_dir: Path) -> str:
     ax.set_title("Prefix model training dynamics")
     ax.grid(alpha=0.25, linestyle="--")
     ax.legend(frameon=False)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
     path = output_dir / "training_curve.png"
     fig.savefig(path, dpi=220, bbox_inches="tight")
     plt.close(fig)

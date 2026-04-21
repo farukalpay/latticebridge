@@ -28,11 +28,7 @@ data/processed/
 # Large model artifacts
 artifacts/*
 !artifacts/.gitkeep
-!artifacts/tokenizer_core.json
 !artifacts/tokenizer_structured.json
-!artifacts/checkpoints_core/
-artifacts/checkpoints_core/*
-!artifacts/checkpoints_core/train_report.json
 !artifacts/checkpoints_structured/
 artifacts/checkpoints_structured/*
 !artifacts/checkpoints_structured/train_report.json
@@ -40,11 +36,6 @@ artifacts/checkpoints_structured/*
 # Generated benchmark artifacts: keep lightweight paper-facing summaries/figures.
 results/*
 !results/.gitkeep
-!results/benchmark_core_validation/
-results/benchmark_core_validation/*
-!results/benchmark_core_validation/validation_summary.json
-!results/benchmark_core_validation/validation_tasks.json
-!results/benchmark_core_validation/validation_config.json
 !results/benchmark_structured_validation/
 results/benchmark_structured_validation/*
 !results/benchmark_structured_validation/validation_summary.json
@@ -58,6 +49,8 @@ results/benchmark_structured_validation/*
 !results/scale_probe_mps_heavy.txt
 
 # LaTeX auxiliary files. Keep the rendered paper PDF.
+paper/generated/*
+!paper/generated/example_diagnostics.tex
 paper/*.aux
 paper/*.bbl
 paper/*.bcf
