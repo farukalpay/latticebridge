@@ -1,0 +1,37 @@
+{
+  "datasets": {
+    "common_gen": {
+      "display_name": "CommonGen",
+      "train_limit": 14000,
+      "validation_limit": 500,
+      "test_limit": 500,
+      "files": {
+        "bundle": {
+          "url": "https://storage.googleapis.com/huggingface-nlp/datasets/common_gen/commongen_data.zip",
+          "filename": "commongen_data.zip",
+          "extract": "zip"
+        }
+      }
+    },
+    "e2e_nlg": {
+      "display_name": "E2E NLG",
+      "train_limit": 16000,
+      "validation_limit": 500,
+      "test_limit": 500,
+      "files": {
+        "train_csv": {
+          "url": "https://github.com/tuetschek/e2e-cleaning/raw/master/cleaned-data/train-fixed.no-ol.csv",
+          "filename": "train-fixed.no-ol.csv"
+        },
+        "validation_json": {
+          "url": "https://raw.githubusercontent.com/jordiclive/GEM_datasets/main/e2e/validation.json",
+          "filename": "validation.json"
+        },
+        "test_json": {
+          "url": "https://raw.githubusercontent.com/jordiclive/GEM_datasets/main/e2e/test.json",
+          "filename": "test.json"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+title: "LatticeBridge"
+message: "If you use this repository, please cite the accompanying manuscript."
+type: software
+authors:
+  - family-names: Alpay
+    given-names: Faruk
+    email: faruk.alpay@bahcesehir.edu.tr
+    affiliation: Department of Computer Engineering, Bahcesehir University
+  - family-names: Kilictas
+    given-names: Bugra
+    email: bugra.kilictas@bahcesehir.edu.tr
+    affiliation: Department of Computer Engineering, Bahcesehir University
+repository-code: "https://github.com/farukalpay/latticebridge"
+license: MIT

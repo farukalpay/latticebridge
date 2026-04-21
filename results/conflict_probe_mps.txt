@@ -1,0 +1,16 @@
+[lab] t= 16/96 alive=0.3033 ess=5535.3
+[lab] t= 32/96 alive=0.2720 ess=5279.3
+[lab] t= 48/96 alive=0.1639 ess=5291.8
+[lab] t= 64/96 alive=0.0914 ess=5421.2
+[lab] t= 80/96 alive=0.0501 ess=5541.8
+[lab] t= 96/96 alive=0.0133 ess=4930.2
+LatticeBridge Synthetic Lab
+---------------------------
+scenario=conflict_probe
+exact_accept_estimate=0.038575
+relaxed_accept_estimate=0.341878
+mean_ess=5188.972051
+resamples_mean=19.000000
+elapsed=3.494097
+combined_states=128
+backend=mps

@@ -1,0 +1,64 @@
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Local data and generated corpora
+data/cache/
+data/raw/
+data/interim/
+data/processed/
+
+# Large model artifacts
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/tokenizer_core.json
+!artifacts/checkpoints_core/
+artifacts/checkpoints_core/*
+!artifacts/checkpoints_core/train_report.json
+
+# Generated benchmark artifacts: keep lightweight paper-facing summaries/figures.
+results/*
+!results/.gitkeep
+!results/benchmark_core_fast/
+results/benchmark_core_fast/*
+!results/benchmark_core_fast/validation_summary.json
+!results/figures/
+!results/figures/*.png
+!results/conflict_probe_mps.txt
+!results/scale_probe_mps_medium.txt
+!results/scale_probe_mps_heavy.txt
+
+# LaTeX auxiliary files. Keep the rendered paper PDF.
+paper/*.aux
+paper/*.bbl
+paper/*.bcf
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
+paper/*.run.xml
+paper/*.synctex.gz
+paper/*.toc
+
+# OS/editor
+.idea/
+.vscode/
+*.swp

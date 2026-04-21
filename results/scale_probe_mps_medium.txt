@@ -1,0 +1,18 @@
+[lab] t= 16/128 alive=0.1806 ess=9285.2
+[lab] t= 32/128 alive=0.1986 ess=9781.0
+[lab] t= 48/128 alive=0.1928 ess=10543.3
+[lab] t= 64/128 alive=0.1496 ess=10496.1
+[lab] t= 80/128 alive=0.0793 ess=10003.9
+[lab] t= 96/128 alive=0.0402 ess=11597.7
+[lab] t=112/128 alive=0.0129 ess=10794.7
+[lab] t=128/128 alive=0.0054 ess=10065.6
+LatticeBridge Synthetic Lab
+---------------------------
+scenario=scale_probe
+exact_accept_estimate=0.012207
+relaxed_accept_estimate=0.241039
+mean_ess=10348.704168
+resamples_mean=21.625000
+elapsed=19.375192
+combined_states=1024
+backend=mps

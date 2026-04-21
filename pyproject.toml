@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latticebridge"
+version = "0.1.0"
+description = "Rare-event controlled structured sequence synthesis on Apple Silicon."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Faruk Alpay", email = "faruk.alpay@bahcesehir.edu.tr" },
+  { name = "Bugra Kilictas", email = "bugra.kilictas@bahcesehir.edu.tr" },
+]
+dependencies = [
+  "torch>=2.4",
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "matplotlib>=3.8",
+  "tqdm>=4.66",
+  "requests>=2.31",
+  "huggingface_hub>=0.25",
+  "tokenizers>=0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+]
+
+[project.scripts]
+latticebridge = "latticebridge.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

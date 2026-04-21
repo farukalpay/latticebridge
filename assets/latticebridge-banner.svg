@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="90" y1="36" x2="1114" y2="324" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B172A"/>
+      <stop offset="0.5" stop-color="#113355"/>
+      <stop offset="1" stop-color="#1A5E63"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="244" y1="102" x2="948" y2="254" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E1F5C4"/>
+      <stop offset="0.5" stop-color="#F6AE2D"/>
+      <stop offset="1" stop-color="#F26419"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="1180" height="340" rx="28" fill="url(#bg)"/>
+  <g opacity="0.2">
+    <path d="M80 70H1120" stroke="white" stroke-width="1"/>
+    <path d="M80 130H1120" stroke="white" stroke-width="1"/>
+    <path d="M80 190H1120" stroke="white" stroke-width="1"/>
+    <path d="M80 250H1120" stroke="white" stroke-width="1"/>
+    <path d="M80 310H1120" stroke="white" stroke-width="1"/>
+    <path d="M160 50V320" stroke="white" stroke-width="1"/>
+    <path d="M320 50V320" stroke="white" stroke-width="1"/>
+    <path d="M480 50V320" stroke="white" stroke-width="1"/>
+    <path d="M640 50V320" stroke="white" stroke-width="1"/>
+    <path d="M800 50V320" stroke="white" stroke-width="1"/>
+    <path d="M960 50V320" stroke="white" stroke-width="1"/>
+  </g>
+  <path d="M150 238C216 177 281 154 344 171C398 185 467 251 546 251C636 251 690 134 764 120C828 108 890 150 948 214" stroke="url(#beam)" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="150" cy="238" r="10" fill="#E1F5C4"/>
+  <circle cx="344" cy="171" r="10" fill="#F6AE2D"/>
+  <circle cx="546" cy="251" r="10" fill="#F6AE2D"/>
+  <circle cx="764" cy="120" r="10" fill="#F26419"/>
+  <circle cx="948" cy="214" r="10" fill="#E1F5C4"/>
+  <rect x="86" y="76" width="350" height="74" rx="18" fill="#09111D" fill-opacity="0.55"/>
+  <text x="112" y="124" fill="white" font-size="42" font-family="Georgia, 'Times New Roman', serif" font-weight="700">LatticeBridge</text>
+  <text x="90" y="192" fill="#E1F5C4" font-size="22" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Rare-event controlled structured sequence synthesis on Apple Silicon</text>
+  <text x="90" y="226" fill="#D6E5F2" font-size="18" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Surface automata + prefix language models + twisted SMC + multilevel splitting</text>
+  <rect x="90" y="264" width="280" height="38" rx="19" fill="#D96C06"/>
+  <text x="116" y="289" fill="white" font-size="18" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Constraint satisfaction without keyword hacks</text>
+</svg>
