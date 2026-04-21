@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 import math
 import time
+from collections import Counter
 
 import torch
 
@@ -40,16 +41,6 @@ class GenerationResult:
         return asdict(self)
 
 
-def _contains_subsequence(sequence: list[int], phrase: list[int]) -> bool:
-    if not phrase:
-        return False
-    end = len(sequence) - len(phrase) + 1
-    for idx in range(max(0, end)):
-        if sequence[idx : idx + len(phrase)] == phrase:
-            return True
-    return False
-
-
 def build_benchmark_tasks(
     records: list,
     tokenizer: LatticeTokenizer,
@@ -57,20 +48,39 @@ def build_benchmark_tasks(
     max_anchors: int = 3,
     min_anchors: int = 2,
 ) -> list[BenchmarkTask]:
+    phrase_document_frequency: Counter[str] = Counter()
+    document_count = 0
+    for record in records:
+        normalized_candidates = {
+            phrase.lower().strip()
+            for phrase in record.candidate_phrases
+            if phrase.lower().strip()
+        }
+        if not normalized_candidates:
+            continue
+        phrase_document_frequency.update(normalized_candidates)
+        document_count += 1
+
+    def information_score(normalized_phrase: str) -> float:
+        document_frequency = phrase_document_frequency.get(normalized_phrase, 0)
+        return math.log((document_count + 1.0) / (document_frequency + 1.0))
+
     tasks: list[BenchmarkTask] = []
     for record in records:
         reference_texts = record.references or [record.target_text]
         normalized_refs = [text.lower() for text in reference_texts]
-        feasible: list[str] = []
+        feasible: list[tuple[float, str, str]] = []
         seen: set[str] = set()
         for phrase in record.candidate_phrases:
             normalized_phrase = phrase.lower().strip()
             if normalized_phrase and normalized_phrase not in seen and any(normalized_phrase in ref for ref in normalized_refs):
-                feasible.append(phrase)
+                feasible.append((information_score(normalized_phrase), normalized_phrase, phrase))
                 seen.add(normalized_phrase)
         if len(feasible) < min_anchors:
             continue
-        required_phrases = feasible if max_anchors <= 0 else feasible[:max_anchors]
+        feasible.sort(key=lambda item: (-item[0], item[1]))
+        ordered_phrases = [phrase for _, _, phrase in feasible]
+        required_phrases = ordered_phrases if max_anchors <= 0 else ordered_phrases[:max_anchors]
         tasks.append(
             BenchmarkTask(
                 dataset_name=record.dataset_name,
@@ -107,10 +117,6 @@ def _coverage(tokenizer: LatticeTokenizer, text: str, required_phrases: list[str
         if phrase.lower().strip() in normalized_text:
             hit_count += 1
     return hit_count / len(required_phrases)
-
-
-def _accepts(tokenizer: LatticeTokenizer, text: str, required_phrases: list[str]) -> bool:
-    return _coverage(tokenizer, text, required_phrases) >= 0.999
 
 
 def _candidate_result(
@@ -253,6 +259,11 @@ def beam_filter_decode(
     beams = [([], 0.0, hidden, last_logits, False)]
     for _ in range(max_new_tokens):
         next_beams = []
+        candidate_tokens: list[int] = []
+        candidate_scores: list[float] = []
+        candidate_prefixes: list[list[int]] = []
+        candidate_done: list[bool] = []
+        candidate_hidden: list[torch.Tensor] = []
         for tokens, score, beam_hidden, beam_logits, done in beams:
             if done:
                 next_beams.append((tokens, score, beam_hidden, beam_logits, done))
@@ -260,13 +271,23 @@ def beam_filter_decode(
             log_probs = torch.log_softmax(beam_logits, dim=-1)
             top_scores, top_ids = torch.topk(log_probs[0], k=min(beam_size, log_probs.shape[-1]))
             for token_score, token_id in zip(top_scores.tolist(), top_ids.tolist()):
-                next_logits, next_hidden = model.step(torch.tensor([token_id], device=device), beam_hidden)
+                candidate_tokens.append(int(token_id))
+                candidate_scores.append(score + float(token_score))
+                candidate_prefixes.append(tokens + [int(token_id)])
+                candidate_done.append(int(token_id) == eos_id)
+                candidate_hidden.append(beam_hidden)
+
+        if candidate_tokens:
+            token_tensor = torch.tensor(candidate_tokens, dtype=torch.long, device=device)
+            hidden_tensor = torch.cat(candidate_hidden, dim=1)
+            batched_logits, batched_hidden = model.step(token_tensor, hidden_tensor)
+            for idx, token_id in enumerate(candidate_tokens):
                 next_beams.append(
                     (
-                        tokens + [token_id],
-                        score + float(token_score),
-                        next_hidden,
-                        next_logits,
+                        candidate_prefixes[idx],
+                        candidate_scores[idx],
+                        batched_hidden[:, idx : idx + 1, :].contiguous(),
+                        batched_logits[idx : idx + 1].contiguous(),
                         token_id == eos_id,
                     )
                 )

@@ -8,6 +8,7 @@ import torch
 
 from latticebridge.experiments.evaluate import run_benchmarks
 from latticebridge.experiments.figures import render_summary_figures
+from latticebridge.experiments.diagnostics import build_example_diagnostics
 from latticebridge.experiments.prepare import prepare_workspace
 from latticebridge.experiments.train import load_trained_model, train_model
 from latticebridge.lab.synthetic import main as synthetic_main
@@ -68,11 +69,22 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--ess-threshold", type=float, default=0.5)
     bench.add_argument("--split-interval", type=int, default=12)
     bench.add_argument("--elite-fraction", type=float, default=0.2)
+    bench.add_argument("--log-interval", type=int, default=50)
 
     figs = sub.add_parser("figures")
     figs.add_argument("--summary-path", default="results/benchmark/test_summary.json")
     figs.add_argument("--output-dir", default="results/figures")
     figs.add_argument("--train-report", default="")
+
+    diag = sub.add_parser("diagnostics")
+    diag.add_argument("--results-path", default="results/benchmark/test_results.json")
+    diag.add_argument("--config-path", default="results/benchmark/test_config.json")
+    diag.add_argument("--processed-root", default="data/cache/processed")
+    diag.add_argument("--tokenizer-path", default="artifacts/tokenizer.json")
+    diag.add_argument("--split", default="validation", choices=["validation", "test"])
+    diag.add_argument("--output-json", default="results/benchmark/example_diagnostics.json")
+    diag.add_argument("--output-tex", default="paper/generated/example_diagnostics.tex")
+    diag.add_argument("--per-dataset-examples", type=int, default=8)
 
     sub.add_parser("synthetic-lab")
     return parser
@@ -141,6 +153,7 @@ def main() -> None:
             split_interval=args.split_interval,
             elite_fraction=args.elite_fraction,
             random_seed=args.seed,
+            log_interval=args.log_interval,
         )
         print(result["summary"])
         return
@@ -153,6 +166,20 @@ def main() -> None:
             train_report_path=train_report_path,
         )
         print({"figures": figure_paths})
+        return
+
+    if args.command == "diagnostics":
+        diagnostics = build_example_diagnostics(
+            results_path=Path(args.results_path),
+            config_path=Path(args.config_path),
+            processed_root=Path(args.processed_root),
+            tokenizer_path=Path(args.tokenizer_path),
+            split=args.split,
+            output_json_path=Path(args.output_json),
+            output_tex_path=Path(args.output_tex),
+            per_dataset_examples=args.per_dataset_examples,
+        )
+        print({"datasets": {name: len(rows) for name, rows in diagnostics.items()}})
 
 
 if __name__ == "__main__":

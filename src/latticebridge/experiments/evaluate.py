@@ -81,6 +81,7 @@ def run_benchmarks(
     split_interval: int = 12,
     elite_fraction: float = 0.2,
     random_seed: int | None = None,
+    log_interval: int = 0,
 ) -> dict[str, object]:
     tokenizer = LatticeTokenizer.load(tokenizer_path)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +111,7 @@ def run_benchmarks(
             "min_anchors": float(min_anchors),
         }
         dataset_results = []
-        for task in tasks:
+        for task_index, task in enumerate(tasks, start=1):
             dataset_results.extend(
                 [
                     greedy_decode(model, tokenizer, task, max_new_tokens=max_new_tokens, device=device),
@@ -140,6 +141,8 @@ def run_benchmarks(
                     ),
                 ]
             )
+            if log_interval > 0 and (task_index % log_interval == 0 or task_index == len(tasks)):
+                print(f"[benchmark] {dataset_name}: {task_index}/{len(tasks)} tasks", flush=True)
 
         summary[dataset_name] = {}
         by_method = defaultdict(list)
@@ -169,8 +172,9 @@ def run_benchmarks(
         "split_interval": split_interval,
         "elite_fraction": elite_fraction,
         "random_seed": random_seed,
+        "log_interval": log_interval,
         "device": device.type,
-        "constraint_selection": "adapter_order_attested_in_reference",
+        "constraint_selection": "empirical_source_idf_attested_in_reference",
         "candidate_selection": "accepting_then_log_score_then_rouge_l",
     }
     (output_dir / f"{split}_config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")

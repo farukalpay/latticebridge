@@ -1,0 +1,31 @@
+{
+  "best_val_loss": 3.3263874259488335,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 4.573946406196038,
+      "val_loss": 3.9919910369248224
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.5769150179315665,
+      "val_loss": 3.676190255017116
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.2632945897254286,
+      "val_loss": 3.498019204057496
+    },
+    {
+      "epoch": 4,
+      "train_loss": 3.0638693124913896,
+      "val_loss": 3.385620692680622
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.9173987806415376,
+      "val_loss": 3.3263874259488335
+    }
+  ],
+  "checkpoint": "artifacts/checkpoints_structured/best.pt"
+}

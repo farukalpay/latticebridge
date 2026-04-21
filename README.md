@@ -9,7 +9,7 @@ LatticeBridge is a compact implementation of **rare-event inference for structur
 - **twisted sequential Monte Carlo** with resampling and multilevel splitting
 - an MPS-compatible synthetic scale lab for controlled rare-event workloads
 
-Constraint handling is instance-driven. The decoder does not use hardcoded topic lists, rule-based label maps, or global keyword classes.
+Constraint handling is instance-driven. The decoder uses source-provided anchors and does not depend on global topic inventories or label maps.
 
 Repository: <https://github.com/farukalpay/latticebridge>
 
@@ -24,31 +24,32 @@ LatticeBridge treats constrained structured decoding as a sequential rare-event 
 
 ## Current Results
 
-The fast validation benchmark in `results/benchmark_core_fast/validation_summary.json` uses CommonGen and E2E NLG with a compact MPS-friendly budget (`10` tasks per dataset, `24` particles for Twisted SMC). The important signal is not leaderboard chasing; it is whether constraint satisfaction improves in a measurable, reproducible way.
+The validation benchmark in `results/benchmark_core_validation/validation_summary.json` covers 996 attainable constraint tasks: 500 CommonGen examples and 496 E2E NLG examples. All four decoders use the same compact prefix model and the same input-derived surface anchors. The benchmark runs on Apple Metal (`mps`) with beam size 6, best-of-16 ancestral sampling, 96 Twisted SMC particles, and a 64-token generation cap.
 
 ### CommonGen
 
 | Method | Success | Coverage | ROUGE-L | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.00 | 0.10 | 0.263 | 0.037 |
-| Beam Filter | 0.00 | 0.13 | 0.221 | 0.222 |
-| Best-of-6 Ancestral | 0.00 | 0.03 | 0.198 | 0.554 |
-| Twisted SMC | **0.40** | **0.80** | 0.243 | 1.721 |
+| Greedy | 0.000 | 0.049 | **0.252** | 0.018 |
+| Beam Filter | 0.000 | 0.041 | 0.223 | 0.058 |
+| Best-of-16 Ancestral | 0.000 | 0.023 | 0.179 | 0.605 |
+| Twisted SMC | **0.668** | **0.869** | 0.220 | 0.348 |
 
 ### E2E NLG
 
 | Method | Success | Coverage | ROUGE-L | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.20 | 0.53 | **0.392** | 0.057 |
-| Beam Filter | 0.30 | 0.57 | 0.347 | 0.620 |
-| Best-of-6 Ancestral | 0.30 | 0.57 | 0.361 | 0.475 |
-| Twisted SMC | **0.40** | **0.80** | 0.274 | 6.451 |
+| Greedy | 0.111 | 0.662 | 0.460 | 0.059 |
+| Beam Filter | 0.139 | 0.676 | **0.476** | 0.212 |
+| Best-of-16 Ancestral | 0.407 | 0.709 | 0.381 | 0.686 |
+| Twisted SMC | **0.427** | **0.782** | 0.226 | 0.314 |
 
 Interpretation:
 
-- Twisted SMC materially improves exact anchor satisfaction and average coverage.
-- The gain is not free: overlap-based quality metrics drop when the bridge places too much mass on anchor realization.
-- Runtime should be read together with coverage; the method is a controlled inference baseline, not a leaderboard claim.
+- Twisted SMC materially improves exact anchor satisfaction and average coverage under the same checkpoint.
+- On CommonGen, it is the only tested method with nonzero exact success across the 500-task validation subset.
+- On E2E NLG, it gives the highest coverage and success while running faster than best-of-16 ancestral sampling.
+- ROUGE-L should be read next to coverage; the bridge changes the operating point rather than optimizing a single metric.
 
 Generated figures:
 
@@ -60,7 +61,7 @@ Generated figures:
 
 ## MPS Scale Probes
 
-The compatibility launcher `cscl_attribute_doob_splitting_lab.py` delegates to a neutral synthetic rare-event systems lab. The following MPS runs were executed:
+`latticebridge_synthetic_lab.py` runs a neutral synthetic rare-event systems lab. The following MPS runs were executed:
 
 | Scenario | Exact Accept | Relaxed Accept | Mean ESS | Runtime (s) |
 | --- | ---: | ---: | ---: | ---: |
@@ -83,7 +84,7 @@ PYTHONPATH=src python3 -m latticebridge.cli prepare \
   --dotenv .env
 ```
 
-`core_benchmark.json` uses CommonGen and E2E for the default fast loop. `datasets.json` additionally includes the WikiBio adapter for larger runs. Public downloads do not require a token, but `HF_TOKEN` can be supplied through `.env` for Hugging Face-hosted assets.
+`core_benchmark.json` stages the CommonGen and E2E corpora used by the reported validation benchmark. `datasets.json` also defines a WikiBio adapter for table-to-text experiments. Public downloads do not require a token, but `HF_TOKEN` can be supplied through `.env` for Hugging Face-hosted assets.
 
 ### 2. Train the prefix language model
 
@@ -99,38 +100,47 @@ PYTHONPATH=src python3 -m latticebridge.cli train \
   --max-tokens 144
 ```
 
-### 3. Run the fast benchmark
+### 3. Run the validation benchmark
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli benchmark \
   --processed-root data/cache/processed_core \
   --tokenizer-path artifacts/tokenizer_core.json \
   --checkpoint artifacts/checkpoints_core/best.pt \
-  --output-dir results/benchmark_core_fast \
+  --output-dir results/benchmark_core_validation \
   --split validation \
-  --per-dataset-limit 10 \
-  --max-new-tokens 48 \
-  --beam-size 4 \
-  --num-samples 6 \
-  --particles 24 \
-  --lambda-weight 1.8 \
+  --per-dataset-limit 500 \
+  --max-new-tokens 64 \
+  --max-anchors 3 \
+  --min-anchors 2 \
+  --beam-size 6 \
+  --num-samples 16 \
+  --particles 96 \
+  --lambda-weight 2.0 \
   --twist-scale 2.0 \
-  --device mps
+  --ess-threshold 0.5 \
+  --split-interval 12 \
+  --elite-fraction 0.2 \
+  --sample-temperature 0.95 \
+  --smc-temperature 0.9 \
+  --seed 13 \
+  --device mps \
+  --log-interval 50
 ```
 
 ### 4. Render summary figures
 
 ```bash
 PYTHONPATH=src python3 -m latticebridge.cli figures \
-  --summary-path results/benchmark_core_fast/validation_summary.json \
+  --summary-path results/benchmark_core_validation/validation_summary.json \
   --output-dir results/figures \
   --train-report artifacts/checkpoints_core/train_report.json
 ```
 
-### 5. Run the user-requested stress probes
+### 5. Run the stress probes
 
 ```bash
-python3 cscl_attribute_doob_splitting_lab.py \
+python3 latticebridge_synthetic_lab.py \
   --scenario conflict_probe \
   --seq-len 96 \
   --rank 256 \
@@ -141,7 +151,7 @@ python3 cscl_attribute_doob_splitting_lab.py \
 ```
 
 ```bash
-python3 cscl_attribute_doob_splitting_lab.py \
+python3 latticebridge_synthetic_lab.py \
   --scenario scale_probe \
   --seq-len 128 \
   --rank 320 \
@@ -152,7 +162,7 @@ python3 cscl_attribute_doob_splitting_lab.py \
 ```
 
 ```bash
-python3 cscl_attribute_doob_splitting_lab.py \
+python3 latticebridge_synthetic_lab.py \
   --scenario scale_probe \
   --seq-len 160 \
   --rank 384 \
@@ -166,7 +176,7 @@ python3 cscl_attribute_doob_splitting_lab.py \
 
 ```text
 assets/                     banner and README visuals
-data/manifests/             benchmark and optional dataset manifests
+data/manifests/             benchmark and dataset manifests
 paper/                      manuscript source and bibliography
 results/                    benchmark outputs, figures, and scale probe logs
 src/latticebridge/          library code
@@ -185,11 +195,12 @@ src/latticebridge/          library code
 - **Separation of concerns:** dataset adapters are thin and schema-aware; the inference library is reusable and dataset-agnostic.
 - **Apple Metal posture:** all reported training and stress runs target `mps`.
 
-## Limitations
+## Validation Artifacts
 
-- The fast benchmark is intentionally small. It is meant to show the rare-event trade-off clearly and reproducibly, not to claim SOTA.
-- The current bridge improves anchor satisfaction more than fluency. A learned twist head or self-distilled proposal is the next structural improvement.
-- WikiBio support is implemented but not part of the default fast loop because the public archive is much heavier to stage locally.
+- `results/benchmark_core_validation/validation_summary.json` stores the aggregate benchmark metrics.
+- `results/benchmark_core_validation/validation_tasks.json` stores benchmark task counts and anchor counts.
+- `results/benchmark_core_validation/validation_config.json` stores the decoding configuration used for the reported run.
+- `results/figures/` stores the rendered benchmark and training figures used in the paper.
 
 ## Paper
 

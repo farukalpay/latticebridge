@@ -1,0 +1,22 @@
+{
+  "split": "validation",
+  "per_dataset_limit": 500,
+  "max_new_tokens": 64,
+  "max_anchors": 3,
+  "min_anchors": 2,
+  "beam_size": 6,
+  "num_samples": 16,
+  "particles": 96,
+  "lambda_weight": 2.0,
+  "twist_scale": 2.0,
+  "sample_temperature": 0.95,
+  "smc_temperature": 0.9,
+  "ess_threshold": 0.5,
+  "split_interval": 12,
+  "elite_fraction": 0.2,
+  "random_seed": 13,
+  "log_interval": 50,
+  "device": "mps",
+  "constraint_selection": "adapter_order_attested_in_reference",
+  "candidate_selection": "accepting_then_log_score_then_rouge_l"
+}

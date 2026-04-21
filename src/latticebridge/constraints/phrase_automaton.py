@@ -146,25 +146,18 @@ class SurfaceProductAutomaton:
 
         component_transitions = [dfa.transition_table(token_surfaces) for dfa in surface_phrases]
 
+        state_ids = torch.arange(state_total, dtype=torch.long)
         transitions = torch.zeros((state_total, len(token_surfaces)), dtype=torch.long)
         distances = torch.zeros((state_total,), dtype=torch.float32)
-        accepting = torch.zeros((state_total,), dtype=torch.bool)
-        for state in range(state_total):
-            tuple_state: list[int] = []
-            remaining = state
-            accepted = True
-            distance = 0
-            for dfa in surface_phrases:
-                local_state = remaining % dfa.state_count
-                remaining //= dfa.state_count
-                tuple_state.append(local_state)
-                accepted = accepted and (local_state == dfa.length)
-                distance += max(0, dfa.length - local_state)
-            accepting[state] = accepted
-            distances[state] = float(distance)
-            for token_id, _token_surface in enumerate(token_surfaces):
-                next_state = 0
-                for idx, dfa in enumerate(surface_phrases):
-                    next_state += int(component_transitions[idx][tuple_state[idx], token_id]) * radices[idx]
-                transitions[state, token_id] = next_state
+        accepting = torch.ones((state_total,), dtype=torch.bool)
+
+        local_states: list[torch.Tensor] = []
+        for idx, dfa in enumerate(surface_phrases):
+            local_state = torch.div(state_ids, radices[idx], rounding_mode="floor") % dfa.state_count
+            local_states.append(local_state)
+            accepting &= local_state == dfa.length
+            distances += torch.clamp(torch.tensor(dfa.length, dtype=torch.long) - local_state, min=0).float()
+
+        for idx, table in enumerate(component_transitions):
+            transitions += table.index_select(0, local_states[idx]) * radices[idx]
         return cls(transitions=transitions, distances=distances, accepting=accepting)

@@ -6,29 +6,61 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
+METHOD_ORDER = ["greedy", "beam_filter", "ancestral_best_of_k", "twisted_smc"]
+METHOD_LABELS = {
+    "greedy": "Greedy",
+    "beam_filter": "Beam",
+    "ancestral_best_of_k": "Best-16",
+    "twisted_smc": "SMC",
+}
+DATASET_LABELS = {
+    "common_gen": "CommonGen",
+    "e2e_nlg": "E2E NLG",
+}
+
+
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _ordered_methods(methods: dict) -> list[str]:
+    ordered = [name for name in METHOD_ORDER if name in methods]
+    ordered.extend(name for name in methods if name not in ordered)
+    return ordered
 
 
 def _render_dataset_bars(summary: dict, output_dir: Path) -> list[str]:
     figure_paths: list[str] = []
     for dataset_name, methods in summary.items():
-        method_names = list(methods.keys())
+        method_names = _ordered_methods(methods)
+        labels = [METHOD_LABELS.get(name, name) for name in method_names]
         success = [methods[name]["success_rate"] for name in method_names]
+        success_se = [methods[name].get("success_rate_se", 0.0) for name in method_names]
+        coverage = [methods[name]["coverage"] for name in method_names]
+        coverage_se = [methods[name].get("coverage_se", 0.0) for name in method_names]
         rouge = [methods[name]["rouge_l"] for name in method_names]
+        rouge_se = [methods[name].get("rouge_l_se", 0.0) for name in method_names]
         runtime = [methods[name]["runtime_seconds"] for name in method_names]
+        runtime_se = [methods[name].get("runtime_seconds_se", 0.0) for name in method_names]
 
-        fig, axes = plt.subplots(1, 3, figsize=(13, 3.6))
-        axes[0].bar(method_names, success, color="#2A6F97")
-        axes[0].set_title(f"{dataset_name}: success")
+        fig, axes_grid = plt.subplots(2, 2, figsize=(8.0, 6.0))
+        axes = axes_grid.reshape(-1)
+        dataset_label = DATASET_LABELS.get(dataset_name, dataset_name)
+        axes[0].bar(labels, success, color="#2A6F97", yerr=success_se, capsize=4, ecolor="#17354C")
+        axes[0].set_title("Success")
         axes[0].set_ylim(0, 1.0)
-        axes[1].bar(method_names, rouge, color="#A44A3F")
-        axes[1].set_title(f"{dataset_name}: ROUGE-L")
-        axes[1].set_ylim(0, max(0.2, max(rouge) * 1.15))
-        axes[2].bar(method_names, runtime, color="#6C8E5E")
-        axes[2].set_title(f"{dataset_name}: runtime")
+        axes[1].bar(labels, coverage, color="#3D8B5F", yerr=coverage_se, capsize=4, ecolor="#254B33")
+        axes[1].set_title("Coverage")
+        axes[1].set_ylim(0, 1.0)
+        axes[2].bar(labels, rouge, color="#A44A3F", yerr=rouge_se, capsize=4, ecolor="#682820")
+        axes[2].set_title("ROUGE-L")
+        axes[2].set_ylim(0, max(0.2, max(rouge) * 1.15))
+        axes[3].bar(labels, runtime, color="#6C8E5E", yerr=runtime_se, capsize=4, ecolor="#4A6340")
+        axes[3].set_title("Runtime (s)")
         for axis in axes:
-            axis.tick_params(axis="x", rotation=20)
+            axis.tick_params(axis="x", rotation=18)
+            axis.grid(axis="y", alpha=0.2, linestyle="--")
+        fig.suptitle(f"{dataset_label} validation benchmark", y=1.03, fontsize=13)
         fig.tight_layout()
         path = output_dir / f"{dataset_name}_benchmark.png"
         fig.savefig(path, dpi=220, bbox_inches="tight")
@@ -38,37 +70,64 @@ def _render_dataset_bars(summary: dict, output_dir: Path) -> list[str]:
 
 
 def _render_frontier(summary: dict, output_dir: Path) -> str:
-    fig, ax = plt.subplots(figsize=(7.2, 4.8))
-    dataset_colors = {
-        "common_gen": "#2A6F97",
-        "e2e_nlg": "#C16630",
+    dataset_names = list(summary.keys())
+    fig, axes = plt.subplots(1, len(dataset_names), figsize=(4.2 * len(dataset_names), 3.8), sharey=True)
+    if len(dataset_names) == 1:
+        axes = [axes]
+    method_styles = {
+        "greedy": ("o", "#496D89"),
+        "beam_filter": ("s", "#6D8F3E"),
+        "ancestral_best_of_k": ("^", "#C16630"),
+        "twisted_smc": ("D", "#8E4B63"),
     }
-    method_markers = {
-        "greedy": "o",
-        "beam_filter": "s",
-        "ancestral_best_of_k": "^",
-        "twisted_smc": "D",
+    label_offsets = {
+        "greedy": (6, 6),
+        "beam_filter": (6, -10),
+        "ancestral_best_of_k": (6, 10),
+        "twisted_smc": (6, 6),
     }
-    for dataset_name, methods in summary.items():
-        color = dataset_colors.get(dataset_name, "#444444")
-        for method_name, metrics in methods.items():
+    for ax, dataset_name in zip(axes, dataset_names):
+        methods = summary[dataset_name]
+        runtimes = [methods[name]["runtime_seconds"] for name in _ordered_methods(methods)]
+        for method_name in _ordered_methods(methods):
+            metrics = methods[method_name]
+            marker, color = method_styles.get(method_name, ("o", "#444444"))
             ax.scatter(
                 metrics["runtime_seconds"],
                 metrics["coverage"],
-                s=105,
+                s=92,
                 color=color,
-                marker=method_markers.get(method_name, "o"),
+                marker=marker,
                 alpha=0.9,
                 edgecolor="white",
                 linewidth=0.8,
-                label=f"{dataset_name} / {method_name}",
             )
-    ax.set_xlabel("Runtime per example (s)")
-    ax.set_ylabel("Anchor coverage")
-    ax.set_title("Coverage-runtime frontier")
-    ax.set_xscale("log")
-    ax.grid(alpha=0.25, linestyle="--")
-    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=8)
+            ax.errorbar(
+                metrics["runtime_seconds"],
+                metrics["coverage"],
+                xerr=metrics.get("runtime_seconds_se", 0.0),
+                yerr=metrics.get("coverage_se", 0.0),
+                fmt="none",
+                ecolor=color,
+                elinewidth=1.0,
+                alpha=0.4,
+                capsize=3,
+            )
+            ax.annotate(
+                METHOD_LABELS.get(method_name, method_name),
+                (metrics["runtime_seconds"], metrics["coverage"]),
+                xytext=label_offsets.get(method_name, (6, 5)),
+                textcoords="offset points",
+                fontsize=8,
+            )
+        ax.set_xlabel("Runtime per example (s)")
+        ax.set_title(DATASET_LABELS.get(dataset_name, dataset_name))
+        ax.set_xscale("log")
+        ax.set_xlim(min(runtimes) * 0.75, max(runtimes) * 1.85)
+        ax.set_ylim(0.0, 1.0)
+        ax.grid(alpha=0.25, linestyle="--")
+    axes[0].set_ylabel("Anchor coverage")
+    fig.suptitle("Coverage-runtime frontier", y=1.03, fontsize=13)
     fig.tight_layout()
     path = output_dir / "coverage_runtime_frontier.png"
     fig.savefig(path, dpi=220, bbox_inches="tight")

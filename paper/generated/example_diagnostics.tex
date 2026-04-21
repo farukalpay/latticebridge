@@ -1,0 +1,39 @@
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.14}
+
+\subsection*{CommonGen}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endfirsthead
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endhead
+exact lift & cat, couch, pet & cov 0.00->1.00; r-l 0.38->0.27; mass 1.00 & A man is parked on a runway. & People dep on a couch that is located on the carpet \\
+exact lift & building, climb, side & cov 0.00->1.00; r-l 0.24->0.15; mass 1.00 & A room with a clock on the wall. & building b climb outside the city \\
+exact lift & car, drive, snow & cov 0.00->1.00; r-l 0.31->0.43; mass 1.00 & A man is a man in a field. & This snowboard is riding a car in the drive. \\
+coverage lift & compete, crowd, front & cov 0.00->0.67; r-l 0.17->0.33; mass 1.00 & a mountain arrivess & crowd genus in front of a compet eallowidming rev sherman with many items pounds . \\
+\bottomrule
+\end{longtable}
+
+\subsection*{E2E NLG}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endfirsthead
+\toprule
+Case & Anchors & Metrics & Baseline & LatticeBridge \\
+\midrule
+\endhead
+exact lift & Clowns, English, high & cov 0.33->1.00; r-l 0.27->0.29; mass 1.00 & Bibimbap House serves English food in the riverside area near Clare Hall. It has a low ... & Clowns English food high customer rated worth bathroom near Clare Hall in the city ... \\
+exact lift & Cocum, Chinese, moderate & cov 0.33->1.00; r-l 0.23->0.25; mass 1.00 & Cocum is a coffee shop that serves Indian food in the high price range and is not kids ... & Cocum moderately Chinese food coffee shop, is family friendly and has a price range of ... \\
+exact lift & Cotto, restaurant, Chinese & cov 0.33->1.00; r-l 0.37->0.14; mass 1.00 & Cotto is a coffee shop that serves Indian food in the city centre near The Portland ... & Chinese restaurant Cotto near riverside and Indian food is The Cricketers. It has an ... \\
+coverage lift & Alimentum, no, Burger King & cov 0.00->0.67; r-l 0.17->0.32; mass 0.00 & The Green Man is a cheap, family friendly place with a price range of £20-25. & Alimentum has average ratings and is located near Burger King. Burger \\
+\bottomrule
+\end{longtable}
+\endgroup

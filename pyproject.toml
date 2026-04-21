@@ -31,6 +31,7 @@ dev = [
 
 [project.scripts]
 latticebridge = "latticebridge.cli:main"
+latticebridge-synthetic-lab = "latticebridge.lab.synthetic:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
