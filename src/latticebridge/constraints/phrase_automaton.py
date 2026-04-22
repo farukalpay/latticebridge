@@ -127,6 +127,10 @@ class SurfaceProductAutomaton:
     transitions: torch.Tensor
     distances: torch.Tensor
     accepting: torch.Tensor
+    radices: tuple[int, ...]
+    state_counts: tuple[int, ...]
+    phrases: tuple[str, ...]
+    lengths: tuple[int, ...]
 
     @classmethod
     def from_phrases(cls, phrases: list[str], token_surfaces: list[str]) -> "SurfaceProductAutomaton":
@@ -136,13 +140,19 @@ class SurfaceProductAutomaton:
                 transitions=torch.zeros((1, len(token_surfaces)), dtype=torch.long),
                 distances=torch.zeros((1,), dtype=torch.float32),
                 accepting=torch.ones((1,), dtype=torch.bool),
+                radices=(),
+                state_counts=(),
+                phrases=(),
+                lengths=(),
             )
 
         radices: list[int] = []
         state_total = 1
+        state_counts: list[int] = []
         for dfa in surface_phrases:
             radices.append(state_total)
             state_total *= dfa.state_count
+            state_counts.append(dfa.state_count)
 
         component_transitions = [dfa.transition_table(token_surfaces) for dfa in surface_phrases]
 
@@ -160,4 +170,21 @@ class SurfaceProductAutomaton:
 
         for idx, table in enumerate(component_transitions):
             transitions += table.index_select(0, local_states[idx]) * radices[idx]
-        return cls(transitions=transitions, distances=distances, accepting=accepting)
+        return cls(
+            transitions=transitions,
+            distances=distances,
+            accepting=accepting,
+            radices=tuple(radices),
+            state_counts=tuple(state_counts),
+            phrases=tuple(dfa.phrase for dfa in surface_phrases),
+            lengths=tuple(dfa.length for dfa in surface_phrases),
+        )
+
+    def local_states(self, state_ids: torch.Tensor) -> list[torch.Tensor]:
+        if not self.radices:
+            return []
+        locals_: list[torch.Tensor] = []
+        for radix, state_count in zip(self.radices, self.state_counts):
+            local_state = torch.div(state_ids, radix, rounding_mode="floor") % state_count
+            locals_.append(local_state)
+        return locals_

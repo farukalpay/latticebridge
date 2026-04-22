@@ -301,11 +301,9 @@ All reported training, validation, and synthetic stress runs were executed on Ap
   \item ESS resampling threshold $0.5P$, splitting interval 12, and elite fraction 0.2.
 \end{itemize}
 
-These settings define a fixed local-compute budget for comparing the four decoding methods. The complete run configuration is stored in \path{results/benchmark_structured_validation/validation_config.json}.
-
 \Needspace{22\baselineskip}
 \section{Training Dynamics and Operating Frontier}
-Table~\ref{tab:training-loss} reports the optimization trace for the prefix model, and Figure~\ref{fig:training-curve} plots the same losses. The loss trajectory is monotone over the reported epochs and supports the use of a fixed shared checkpoint for all decoding comparisons.
+Table~\ref{tab:training-loss} reports the optimization trace for the prefix model. The loss trajectory is monotone over the reported epochs and supports the use of a fixed shared checkpoint for all decoding comparisons.
 
 \begin{table}[H]
 \centering
@@ -328,19 +326,14 @@ Across datasets, the shared proposal model often realizes individual anchors wit
 
 Figure~\ref{fig:coverage-runtime} gives a budget-oriented summary. On CommonGen, twisted SMC obtains substantially higher coverage and exact success than the tested baselines while remaining below the best-of-16 ancestral runtime. On E2E, twisted SMC improves exact success and coverage over greedy and beam filtering, and it obtains higher coverage than best-of-16 ancestral sampling at lower mean latency. On WikiBio, exact acceptance remains rare for all methods, but twisted SMC still produces the widest coverage margin. We therefore report runtime together with coverage rather than treating satisfaction as an isolated metric.
 
-\begin{figure}[tbp]
+\Needspace{18\baselineskip}
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.72\textwidth]{training_curve.png}
-  \caption{Training and validation loss for the compact prefix model.}
-  \label{fig:training-curve}
-\end{figure}
-
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.95\textwidth]{coverage_runtime_frontier.png}
+  \includegraphics[width=0.96\textwidth]{coverage_runtime_frontier.png}
   \caption{Coverage-runtime frontier for the validation benchmark. The x-axis is logarithmic to separate low-latency baselines from particle-based decoding regimes.}
   \label{fig:coverage-runtime}
 \end{figure}
+\noindent The frontier plot anticipates the dataset-level comparison in Table~\ref{tab:main-results}: exact satisfaction gains are concentrated in the particle-controlled regime, while overlap and latency remain in visible tension.
 \FloatBarrier
 
 \section{Results on Structured Generation}
@@ -413,13 +406,6 @@ Scale 160/384/24/24576 & 0.000854 & 0.1690 & 15843.5 & 49.43 \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{mps_scale_probe.png}
-  \caption{Rare-event barrier growth and runtime scaling for the synthetic probe family.}
-\end{figure}
-\FloatBarrier
-
 The probe results highlight two numerical properties:
 \begin{itemize}[leftmargin=1.5em]
   \item the exact--relaxed gap widens with probe difficulty, indicating that exact acceptance becomes progressively rarer,
@@ -427,7 +413,7 @@ The probe results highlight two numerical properties:
 \end{itemize}
 
 \section{Qualitative Interpretation}
-The output examples in Appendix~F illustrate the same control--quality trade-off seen in the aggregate metrics. Incomplete but fluent continuations often remain competitive under local likelihood, while the twisted bridge reallocates probability mass toward accepting sequences. The resulting outputs are therefore most informative when read together with coverage, overlap, acceptance mass, and ESS, rather than in isolation.
+The output examples in Appendix~\ref{sec:example-diagnostics} illustrate the same control--quality trade-off seen in the aggregate metrics. Incomplete but fluent continuations often remain competitive under local likelihood, while the twisted bridge reallocates probability mass toward accepting sequences. The resulting outputs are therefore most informative when read together with coverage, overlap, acceptance mass, and ESS, rather than in isolation.
 
 \section{Connection to Doob Transforms and Dynamic Systems}
 Twisted proposals can be derived from the Doob $h$-transform associated with the probability of future acceptance. For the sequence model considered here, the exact harmonic function is not available because it depends on the probability of reaching an accepting automaton state from every possible recurrent hidden state and partial surface. LatticeBridge therefore uses distance reduction in the surface automaton as a computable surrogate.
@@ -538,15 +524,6 @@ The resulting system provides a reusable automaton interface, explicit particle 
 
 \appendix
 
-\section{Implementation Checklist}
-\begin{itemize}[leftmargin=1.5em]
-  \item Manifest-driven dataset staging with external dotenv loading.
-  \item Saved tokenizer and checkpoint files.
-  \item JSON benchmark summaries and generated PNG figures.
-  \item Compatibility launcher for the requested rare-event stress commands.
-  \item Full manuscript source and bibliography in-repo.
-\end{itemize}
-
 \section{Implementation Details}
 \subsection{Tokenizer}
 We use a byte-level BPE tokenizer with special tokens for source and target delimiters. Byte-level modeling keeps the surface automata general enough to handle punctuation and mixed-case entity names without introducing language-specific preprocessing.
@@ -592,6 +569,7 @@ Dataset & Method & $\Delta$ Success & $\Delta$ Coverage & Cov./extra s & Succ./e
 \end{table}
 
 \section{Example Diagnostics}
+\label{sec:example-diagnostics}
 \input{generated/example_diagnostics.tex}
 
 The examples show the same trade-off measured in Table~\ref{tab:main-results}: the particle decoder moves probability mass toward accepting strings, while the compact proposal can still assign higher local probability to more fluent but incomplete strings. Accordingly, the paper reports both exact satisfaction and overlap-based quality.

@@ -150,6 +150,180 @@ def _selection_key(result: GenerationResult) -> tuple[int, float, float]:
     return (int(result.success), result.log_score, result.rouge_l)
 
 
+def _remaining_suffix_tokens(
+    tokenizer: LatticeTokenizer,
+    automaton: SurfaceProductAutomaton,
+    state_id: int,
+    *,
+    lookahead_depth: int,
+    cache: dict[int, list[list[int]]],
+) -> list[list[int]]:
+    cached = cache.get(state_id)
+    if cached is not None:
+        return cached
+
+    state_tensor = torch.tensor([state_id], dtype=torch.long)
+    local_states = automaton.local_states(state_tensor)
+    suffixes: list[list[int]] = []
+    for phrase, length, local_state in zip(automaton.phrases, automaton.lengths, local_states):
+        consumed = int(local_state.item())
+        if consumed >= length:
+            continue
+        remaining_surface = phrase[consumed:]
+        token_ids = tokenizer.encode(remaining_surface)
+        if token_ids:
+            suffixes.append(token_ids[:lookahead_depth])
+
+    cache[state_id] = suffixes
+    return suffixes
+
+
+def _truncated_anchor_completion_score(
+    model: PrefixLanguageModel,
+    hidden: torch.Tensor,
+    last_logits: torch.Tensor,
+    suffix_token_lists: list[list[int]],
+    *,
+    eos_id: int,
+    device: torch.device,
+) -> float:
+    if not suffix_token_lists:
+        return 0.0
+    count = len(suffix_token_lists)
+    current_hidden = hidden.repeat(1, count, 1)
+    current_logits = last_logits.repeat(count, 1)
+    totals = torch.zeros(count, dtype=torch.float32, device=device)
+    lengths = torch.tensor([len(tokens) for tokens in suffix_token_lists], dtype=torch.long, device=device)
+    max_steps = int(lengths.max().item())
+    for position in range(max_steps):
+        active = lengths > position
+        if not bool(active.any().item()):
+            break
+        target = torch.full((count,), eos_id, dtype=torch.long, device=device)
+        for index, tokens in enumerate(suffix_token_lists):
+            if position < len(tokens):
+                target[index] = tokens[position]
+        active_logits = torch.log_softmax(current_logits[active], dim=-1)
+        gathered = active_logits.gather(1, target[active].unsqueeze(-1)).squeeze(-1)
+        totals[active] += gathered
+        next_logits, next_hidden = model.step(target, current_hidden)
+        if (~active).any():
+            next_hidden[:, ~active, :] = current_hidden[:, ~active, :]
+            next_logits[~active] = current_logits[~active]
+        current_hidden = next_hidden
+        current_logits = next_logits
+    return float((totals / torch.clamp(lengths.float(), min=1.0)).mean().item())
+
+
+def _lookahead_values(
+    model: PrefixLanguageModel,
+    tokenizer: LatticeTokenizer,
+    automaton: SurfaceProductAutomaton,
+    states: torch.Tensor,
+    hidden: torch.Tensor,
+    last_logits: torch.Tensor,
+    *,
+    lookahead_depth: int,
+    eos_id: int,
+    device: torch.device,
+    suffix_cache: dict[int, list[list[int]]] | None = None,
+) -> torch.Tensor:
+    if lookahead_depth <= 0 or not automaton.phrases:
+        return torch.zeros(states.shape[0], dtype=torch.float32, device=device)
+    cache = suffix_cache if suffix_cache is not None else {}
+    values = torch.zeros(states.shape[0], dtype=torch.float32, device=device)
+    for particle_index, state_id in enumerate(states.tolist()):
+        suffixes = _remaining_suffix_tokens(
+            tokenizer,
+            automaton,
+            int(state_id),
+            lookahead_depth=lookahead_depth,
+            cache=cache,
+        )
+        if not suffixes:
+            continue
+        values[particle_index] = _truncated_anchor_completion_score(
+            model,
+            hidden[:, particle_index : particle_index + 1, :],
+            last_logits[particle_index : particle_index + 1],
+            suffixes,
+            eos_id=eos_id,
+            device=device,
+        )
+    return values
+
+
+def _proposal_lookahead_bonus(
+    model: PrefixLanguageModel,
+    tokenizer: LatticeTokenizer,
+    automaton: SurfaceProductAutomaton,
+    states: torch.Tensor,
+    hidden: torch.Tensor,
+    next_states: torch.Tensor,
+    current_lookahead: torch.Tensor,
+    active: torch.Tensor,
+    *,
+    lookahead_depth: int,
+    eos_id: int,
+    device: torch.device,
+    suffix_cache: dict[int, list[list[int]]],
+) -> torch.Tensor:
+    bonus = torch.zeros((states.shape[0], next_states.shape[1]), dtype=torch.float32, device=device)
+    if lookahead_depth <= 0 or not automaton.phrases or not bool(active.any().item()):
+        return bonus
+
+    candidate_rows: list[int] = []
+    candidate_tokens: list[int] = []
+    candidate_states: list[int] = []
+    candidate_hidden: list[torch.Tensor] = []
+    for row, state_id in enumerate(states.tolist()):
+        if not bool(active[row].item()):
+            continue
+        suffixes = _remaining_suffix_tokens(
+            tokenizer,
+            automaton,
+            int(state_id),
+            lookahead_depth=lookahead_depth,
+            cache=suffix_cache,
+        )
+        if not suffixes:
+            continue
+        candidate_token_ids = sorted({tokens[0] for tokens in suffixes if tokens})
+        for token_id in candidate_token_ids:
+            candidate_rows.append(row)
+            candidate_tokens.append(token_id)
+            candidate_states.append(int(next_states[row, token_id].item()))
+            candidate_hidden.append(hidden[:, row : row + 1, :])
+
+    if not candidate_tokens:
+        return bonus
+
+    token_tensor = torch.tensor(candidate_tokens, dtype=torch.long, device=device)
+    hidden_tensor = torch.cat(candidate_hidden, dim=1)
+    next_logits, next_hidden = model.step(token_tensor, hidden_tensor)
+
+    for batch_index, (row, token_id, state_id) in enumerate(zip(candidate_rows, candidate_tokens, candidate_states)):
+        suffixes = _remaining_suffix_tokens(
+            tokenizer,
+            automaton,
+            state_id,
+            lookahead_depth=lookahead_depth,
+            cache=suffix_cache,
+        )
+        next_value = 0.0
+        if suffixes:
+            next_value = _truncated_anchor_completion_score(
+                model,
+                next_hidden[:, batch_index : batch_index + 1, :],
+                next_logits[batch_index : batch_index + 1],
+                suffixes,
+                eos_id=eos_id,
+                device=device,
+            )
+        bonus[row, token_id] = next_value - current_lookahead[row]
+    return bonus
+
+
 def greedy_decode(
     model: PrefixLanguageModel,
     tokenizer: LatticeTokenizer,
@@ -325,6 +499,9 @@ def twisted_smc_decode(
     split_interval: int,
     elite_fraction: float,
     temperature: float,
+    lookahead_weight: float,
+    lookahead_depth: int,
+    lookahead_interval: int,
     device: torch.device,
 ) -> GenerationResult:
     if particles <= 0:
@@ -333,6 +510,10 @@ def twisted_smc_decode(
         raise ValueError("ess_threshold must be in (0, 1]")
     if not 0.0 < elite_fraction <= 1.0:
         raise ValueError("elite_fraction must be in (0, 1]")
+    if lookahead_depth < 0:
+        raise ValueError("lookahead_depth must be non-negative")
+    if lookahead_interval < 0:
+        raise ValueError("lookahead_interval must be non-negative")
     start = time.perf_counter()
     eos_id = tokenizer.id_for("<eos>")
     prefix_ids = _prefix_ids(tokenizer, task.source_text)
@@ -352,6 +533,19 @@ def twisted_smc_decode(
     resamples = 0
     mean_ess = 0.0
     steps_run = 0
+    suffix_cache: dict[int, list[list[int]]] = {}
+    current_lookahead = _lookahead_values(
+        model,
+        tokenizer,
+        automaton,
+        states,
+        hidden,
+        last_logits,
+        lookahead_depth=lookahead_depth,
+        eos_id=eos_id,
+        device=device,
+        suffix_cache=suffix_cache,
+    )
 
     def normalized(logw: torch.Tensor) -> torch.Tensor:
         anchor = torch.max(logw)
@@ -360,15 +554,30 @@ def twisted_smc_decode(
 
     for step in range(max_new_tokens):
         steps_run = step + 1
+        active_before = ~done
         current_distance = distances.index_select(0, states)
         next_states = transitions.index_select(0, states)
         next_distance = distances.index_select(0, next_states.reshape(-1)).reshape(particles, -1)
         progress = current_distance.unsqueeze(-1) - next_distance
         guidance = twist_scale * progress
+        proposal_lookahead = _proposal_lookahead_bonus(
+            model,
+            tokenizer,
+            automaton,
+            states,
+            hidden,
+            next_states,
+            current_lookahead,
+            active_before,
+            lookahead_depth=lookahead_depth,
+            eos_id=eos_id,
+            device=device,
+            suffix_cache=suffix_cache,
+        )
 
         scaled_logits = last_logits / max(temperature, 1e-4)
         base_logprob = torch.log_softmax(scaled_logits, dim=-1)
-        proposal_logprob = torch.log_softmax(scaled_logits + guidance, dim=-1)
+        proposal_logprob = torch.log_softmax(scaled_logits + guidance + lookahead_weight * proposal_lookahead, dim=-1)
 
         sampled = torch.full((particles,), eos_id, dtype=torch.long, device=device)
         if (~done).any():
@@ -395,6 +604,34 @@ def twisted_smc_decode(
         last_logits = next_logits
         done = done | (sampled == eos_id)
 
+        if lookahead_weight > 0.0 and lookahead_depth > 0:
+            newly_done = active_before & (sampled == eos_id)
+            should_refresh = (
+                lookahead_interval <= 1
+                or step == 0
+                or ((step + 1) % lookahead_interval == 0)
+                or bool(newly_done.any().item())
+            )
+            if should_refresh:
+                next_lookahead = _lookahead_values(
+                    model,
+                    tokenizer,
+                    automaton,
+                    states,
+                    hidden,
+                    last_logits,
+                    lookahead_depth=lookahead_depth,
+                    eos_id=eos_id,
+                    device=device,
+                    suffix_cache=suffix_cache,
+                )
+                log_weights = torch.where(
+                    active_before,
+                    log_weights + lookahead_weight * (next_lookahead - current_lookahead),
+                    log_weights,
+                )
+                current_lookahead = torch.where(done, torch.zeros_like(next_lookahead), next_lookahead)
+
         probs = normalized(log_weights)
         ess = float(1.0 / torch.sum(probs * probs).item())
         mean_ess += ess
@@ -406,10 +643,11 @@ def twisted_smc_decode(
             trajectories = trajectories[indices]
             hidden = hidden[:, indices, :]
             last_logits = last_logits[indices]
+            current_lookahead = current_lookahead[indices]
             resamples += 1
 
         if split_interval > 0 and (step + 1) % split_interval == 0 and step + 1 < max_new_tokens:
-            score = log_weights - lambda_weight * distances.index_select(0, states)
+            score = log_weights + lookahead_weight * current_lookahead - lambda_weight * distances.index_select(0, states)
             elite_k = max(1, int(math.ceil(particles * elite_fraction)))
             _, elite_idx = torch.topk(score, k=elite_k)
             pick = elite_idx[torch.randint(0, elite_k, (particles,), device=device)]
@@ -418,6 +656,7 @@ def twisted_smc_decode(
             trajectories = trajectories[pick]
             hidden = hidden[:, pick, :]
             last_logits = last_logits[pick]
+            current_lookahead = current_lookahead[pick]
             log_weights = torch.zeros_like(log_weights)
 
         if done.all():
@@ -437,6 +676,9 @@ def twisted_smc_decode(
         "particles": particles,
         "lambda_weight": lambda_weight,
         "twist_scale": twist_scale,
+        "lookahead_weight": lookahead_weight,
+        "lookahead_depth": lookahead_depth,
+        "lookahead_interval": lookahead_interval,
         "resamples": resamples,
         "mean_ess": mean_ess / max(1, steps_run),
         "acceptance_mass": float(probs[accepting_mask].sum().item()),

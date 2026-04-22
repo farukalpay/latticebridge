@@ -1,10 +1,12 @@
 \begingroup
-\small
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.14}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\renewcommand{\arraystretch}{1.08}
 
 \subsection*{CommonGen}
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.09\textwidth}>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}}
 \toprule
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
@@ -13,19 +15,27 @@ Case & Anchors & Metrics & Baseline & LatticeBridge \\
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
 \endhead
-exact lift & cat, floor, sit & cov 0.33->1.00; r-l 0.50->0.63; mass 1.00 & A cat sleeping on a plate. & A cat restaurant that is sits on the floor. \\
-exact lift & top, walk, dog & cov 0.33->1.00; r-l 0.47->0.63; mass 1.00 & A dog is a bunch of a pizza. & A dog are walking on a top. \\
-exact lift & climb, wall, talk & cov 0.33->1.00; r-l 0.22->0.53; mass 1.00 & Someone shower curtains on the wall. & A white wall is climbing talking in a lake. \\
-coverage lift & bowl, food, eat & cov 0.00->0.67; r-l 0.25->0.57; mass 1.00 & A large room with a clock on a plate. & This vase at a bowl of food. \\
-coverage lift & spray, car, water & cov 0.00->0.67; r-l 0.31->0.46; mass 1.00 & A man is in the grass & water tees pray on the relessled carv \\
-coverage lift & cain, stroll, couple & cov 0.00->0.67; r-l 0.24->0.45; mass 1.00 & A man is a bunch of a bunch of a bunch of a bun. & A couple is speaker and a protest rollars and a caine \\
-near miss & sofa, hold, sit & cov 0.33->0.33; r-l 0.27->0.45; mass 1.00 & a woman is lying on the site & A man holds it is a street apples of a containers. \\
-exact lift & field, look, stand & cov 0.00->1.00; r-l 0.24->0.12; mass 1.00 & A woman is walking in the grass & A boy stands looks out field \\
+exact lift & cat, floor, sit & cov 0.33 to 1.00; RL 0.50 to 0.63; mass 1.00 & A cat sleeping on a plate. & A cat restaurant that is sits on the floor. \\
+\midrule
+exact lift & top, walk, dog & cov 0.33 to 1.00; RL 0.47 to 0.63; mass 1.00 & A dog is a bunch of a pizza. & A dog are walking on a top. \\
+\midrule
+exact lift & pool, front, stand & cov 0.00 to 1.00; RL 0.27 to 0.50; mass 1.00 & a pair of pulls in a pond & a pool standing in front of the hay \\
+\midrule
+coverage lift & bowl, food, eat & cov 0.00 to 0.67; RL 0.25 to 0.57; mass 1.00 & A large room with a clock on a plate. & This vase at a bowl of food. \\
+\midrule
+coverage lift & pitch, game, throw & cov 0.00 to 0.67; RL 0.13 to 0.43; mass 1.00 & footballer is a fishing boat in the harbour & pla cricketer throws during a medical pitch \\
+\midrule
+near miss & sofa, hold, sit & cov 0.33 to 0.33; RL 0.27 to 0.45; mass 1.00 & a woman is lying on the site & A man holds it is a street apples of a containers. \\
+\midrule
+exact lift & climb, wall, talk & cov 0.33 to 1.00; RL 0.22 to 0.53; mass 1.00 & Someone shower curtains on the wall. & A white wall is climbing talking in a lake. \\
+\midrule
+exact lift & body, front, water & cov 0.00 to 1.00; RL 0.35 to 0.50; mass 0.98 & a pair of a tree in the middle of the sea & water on a shadow in front of a body against a bow \\
+\midrule
 \bottomrule
 \end{longtable}
 
 \subsection*{E2E NLG}
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.09\textwidth}>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}}
 \toprule
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
@@ -34,19 +44,27 @@ Case & Anchors & Metrics & Baseline & LatticeBridge \\
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
 \endhead
-exact lift & Aromi, 5 out of 5, Chinese & cov 0.67->1.00; r-l 0.60->0.58; mass 0.00 & Aromi is a coffee shop that serves Indian food. It is not family-friendly and has a ... & Chinese food near Aromi, family friendly coffee shop is in the city centre area. It has ... \\
-exact lift & low, Fitzbillies, no & cov 0.33->1.00; r-l 0.35->0.58; mass 1.00 & Cocum coffee shop serves fast food and has an average customer rating and is not kid ... & Fitzbillies is an Italian coffee shop with low ratings and are not child friendly. \\
-exact lift & Alimentum, Burger King, riverside & cov 0.00->1.00; r-l 0.43->0.57; mass 0.00 & The Green Man is a family friendly place near the Rainbow Vegetarian Cafe. It is not ... & Alimentum riverside near Burger King on the riversideburger \\
-coverage lift & 5 out of 5, Fitzbillies, Chinese & cov 0.00->0.67; r-l 0.44->0.46; mass 0.00 & Cocum is a coffee shop that serves Indian food. It is not family-friendly and has a ... & Fitzbillies Chinese restaurant has a high price range and a customer rating of 1 out of 5 \\
-coverage lift & Cocum, 5 out of 5, cheap & cov 0.00->0.67; r-l 0.70->0.38; mass 0.00 & Wildwood is a coffee shop providing Indian food Its customer rating is 1 out of 5. & Cocum is cheaply priced French coffee shop, with a customer rating of 3 out of 5 \\
-coverage lift & restaurant, moderate, 1 out of 5 & cov 0.00->0.67; r-l 0.41->0.28; mass 0.00 & The Eagle is a non-family-friendly fast food coffee shop that is located in the city ... & restaurant moderately priced The Eagle on the riverside, has a low customer rating, is ... \\
-low-mass success & Cotto, The Portland Arms, city centre & cov 1.00->1.00; r-l 0.77->0.63; mass 0.00 & Cotto is a coffee shop providing Indian food in the city centre near The Portland Arms. & Cotto is a coffee shop in the city centre near The Portland Arms that provides fast food ... \\
-near miss & Fitzbillies, high, city centre & cov 1.00->0.67; r-l 0.36->0.71; mass 0.00 & Fitzbillies is a coffee shop providing Indian food in the high price range. It is ... & Fitzbillies is a highly rated Italian coffee shop located in City city \\
+exact lift & Aromi, 5 out of 5, Chinese & cov 0.67 to 1.00; RL 0.60 to 0.58; mass 0.00 & Aromi is a coffee shop that serves Indian food. It is not family-friendly and has a customer rating of 5 out of 5. It is located in the city centre. & Chinese food near Aromi, family friendly coffee shop is in the city centre area. It has a customer rating of 5 out of 5 \\
+\midrule
+exact lift & less than £20, Cotto, The Portland Arms & cov 0.67 to 1.00; RL 0.59 to 0.55; mass 0.00 & Cotto is a coffee shop providing Indian food in the high price range. It is located in the riverside. It is near The Portland Arms. & Cotto is a coffee shop that serves Indian food in the less than 20 price range. It is located near The Portland Arms. It is in the city center of the less \\
+\midrule
+exact lift & low, Fitzbillies, no & cov 0.33 to 1.00; RL 0.35 to 0.58; mass 1.00 & Cocum coffee shop serves fast food and has an average customer rating and is not kid friendly. & Fitzbillies is an Italian coffee shop with low ratings and are not child friendly. \\
+\midrule
+coverage lift & Alimentum, Burger King, city centre & cov 0.33 to 0.67; RL 0.36 to 0.64; mass 0.00 & With a price range of 20-25, near All Bar One in the city centre is called Zizzi. & Alimentum provides French food in the city centre near Burger \\
+\midrule
+coverage lift & 5 out of 5, cheap, Fitzbillies & cov 0.33 to 0.67; RL 0.29 to 0.53; mass 0.00 & Fitzbillies is a coffee shop providing Indian food in the high price range. It is located in the riverside. Its customer rating is average. & Fitzbillies is a cheap Italian coffee shop with a riverside area, that has a customer rating of 1 out of 5 \\
+\midrule
+low-mass success & Cotto, The Portland Arms, city centre & cov 1.00 to 1.00; RL 0.77 to 0.63; mass 0.00 & Cotto is a coffee shop providing Indian food in the city centre near The Portland Arms. & Cotto is a coffee shop in the city centre near The Portland Arms that provides fast food in the city \\
+\midrule
+near miss & Fitzbillies, high, city centre & cov 1.00 to 0.67; RL 0.36 to 0.71; mass 0.00 & Fitzbillies is a coffee shop providing Indian food in the high price range. It is located in the city centre. It has a customer rating of 1 out of 5 and is not family-friendly. & Fitzbillies is a highly rated Italian coffee shop located in City city \\
+\midrule
+low-mass success & more than £30, Fitzbillies, high & cov 1.00 to 1.00; RL 0.17 to 0.60; mass 0.00 & With a high price price range, high customer ratings and has a moderate price range and is in a high end price range, , customer rating, provides Fitzbillies, that costs more than 30 & Fitzbilliest Fast food coffee shop with high prices in the more than 30 price range. It is located in the more \\
+\midrule
 \bottomrule
 \end{longtable}
 
 \subsection*{WikiBio}
-\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.09\textwidth}>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}}
 \toprule
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
@@ -55,14 +73,22 @@ Case & Anchors & Metrics & Baseline & LatticeBridge \\
 Case & Anchors & Metrics & Baseline & LatticeBridge \\
 \midrule
 \endhead
-exact lift & defenseman, 1 & cov 0.50->1.00; r-l 0.31->0.35; mass 1.00 & joseph `` tom '' '' -lrb- born august 27 , 1988 -rrb- is a former australian rules ... & john brown -lrb- born april 25 , 1969 -rrb- is a former ice hockey defenseman who played ... \\
-exact lift & minnesota, republican & cov 0.00->1.00; r-l 0.23->0.29; mass 1.00 & joseph h. m. m. m. -lrb- born august 27 , 1988 -rrb- is a former australian rules ... & minnesota republicandr was member of the archares -lrb- lyflad -rrb- soccerback party . ... \\
-exact lift & argentine, 1944 & cov 0.00->1.00; r-l 0.33->0.26; mass 1.00 & sheriisiuta -lrb- born 9 november 1993 -rrb- is an irish cyclist . he competed in the ... & hugo argentinema -lrb- born 1944 -rrb- is a brawill-tonhup comedian and teacher . she ... \\
-coverage lift & 1779, thomas edwards, welsh & cov 0.00->0.67; r-l 0.39->0.44; mass 0.00 & richith rera bay -lrb- january 19 , 1858 -- september 16 , 1936 -rrb- was a scottish ... & thomas han thomas elliton -lrb- 3 june 1779 -- 1 september 1959 -rrb- , was a welsh ... \\
-coverage lift & centre forward, --, 1893 & cov 0.00->0.67; r-l 0.34->0.32; mass 0.00 & joseph `` tom '' '' -lrb- born september 27 , 1988 -rrb- is a former australian rules ... & martard svery -lrb- 1893 -- 1942 -rrb- was a british physicist . centre \\
-coverage lift & 1931, japanese, keiichiro takahara & cov 0.00->0.67; r-l 0.36->0.32; mass 0.00 & gregissi -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who ... & Japaneseishuko -lrb- born 1931 -rrb- is an english actress , known for his role asnia on ... \\
-near miss & 4 october 1967, torsten kracht & cov 0.00->0.00; r-l 0.36->0.39; mass 0.00 & nudankdik -lrb- ; born 16 june 1990 -rrb- is an american writer and musician . & portrasteven pool -lrb- born 4 october 1963 -rrb- is a perry ventor skater , and a ... \\
-exact lift & michigan, republican & cov 0.00->1.00; r-l 0.21->0.12; mass 1.00 & denon ` prisonton -lrb- born 1961 -rrb- is an indian politician , and a member of the ... & republican michigan gordon -lrb- born february 30 , 1945 -rrb- is an irish football player . \\
+exact lift & defenseman, 1 & cov 0.50 to 1.00; RL 0.31 to 0.35; mass 1.00 & joseph `` tom '' '' -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who played for the chicago cubs and the national football league -lrb- vfl -rrb- . & john brown -lrb- born april 25 , 1969 -rrb- is a former ice hockey defenseman who played from major league baseball for marollham in the legislative assembly of comed -lrb- 28 vfl -rrb- . \\
+\midrule
+exact lift & minnesota, republican & cov 0.00 to 1.00; RL 0.23 to 0.29; mass 1.00 & joseph h. m. m. m. -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who played for the chicago cubs and the national football league -lrb- vfl -rrb- . & minnesota republicandr was member of the archares -lrb- lyflad -rrb- soccerback party . in 24 he won the native season of the rexona in modern swimmingham , he was elected to the federal district and last member of the nigeria west party . \\
+\midrule
+exact lift & 30th, wyoming, 1983 & cov 0.00 to 1.00; RL 0.14 to 0.24; mass 1.00 & joseph `` tom '' '' -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who played for the chicago cubs and the national football league -lrb- vfl -rrb- . & jon von '' -lrb- born 19 june 1983 -rrb- is a sweden from the senate of albert and lawyoming club and gallery . he is a member of the democratic party of the 30th district . she competed in the individual and first season at the 2008 summer olympics in the world mist \\
+\midrule
+coverage lift & 1779, thomas edwards, welsh & cov 0.00 to 0.67; RL 0.39 to 0.44; mass 0.00 & richith rera bay -lrb- january 19 , 1858 -- september 16 , 1936 -rrb- was a scottish footballer . & thomas han thomas elliton -lrb- 3 june 1779 -- 1 september 1959 -rrb- , was a welsh professional football player who played for thomas \\
+\midrule
+coverage lift & 20 january 1945, film director, gianni amelio & cov 0.00 to 0.33; RL 0.31 to 0.43; mass 0.00 & paulio john timville -lrb- born 29 august 1989 -rrb- is a canadian former professional ice hockey player . & timvianz -lrb- born 17 december 1942 -rrb- is a french film director field film \\
+\midrule
+near miss & 13 october 1976, 28 march 1933, jerzy strzałka & cov 0.00 to 0.00; RL 0.28 to 0.38; mass 0.00 & lantry pediver -lrb- 27 november 1853 -- bir -rrb- was an american fencer . & william durth , hitajal -lrb- 13 july 1908 -- 1960 -rrb- was a danish court and poet . he competed at the 2013 \\
+\midrule
+near miss & 4 october 1967, torsten kracht & cov 0.00 to 0.00; RL 0.36 to 0.39; mass 0.00 & nudankdik -lrb- ; born 16 june 1990 -rrb- is an american writer and musician . & portrasteven pool -lrb- born 4 october 1963 -rrb- is a perry ventor skater , and a former member of the assembly of torsten \\
+\midrule
+near miss & 10 november 1993, ibrahim moro, midfielder & cov 0.33 to 0.33; RL 0.55 to 0.38; mass 0.00 & david kayono -lrb- born august 27 , 1988 -rrb- is a former australian rules footballer who played as a midfielder . & poff midfielder cheeeng -lrb- born may 10 , 1954 -rrb- is a hungarian synmencer who competed for clayibrahim \\
+\midrule
 \bottomrule
 \end{longtable}
 \endgroup

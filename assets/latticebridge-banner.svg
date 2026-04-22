@@ -17,9 +17,9 @@
   <text x="124" y="160" fill="#DCE7EE" font-size="24" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Rare-event inference for faithful structured generation</text>
   <text x="124" y="196" fill="#AFC4D2" font-size="20" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Surface automata  •  Prefix language model  •  Twisted SMC</text>
 
-  <rect x="850" y="78" width="236" height="44" rx="22" fill="#EFF4F6" fill-opacity="0.10" stroke="#EFF4F6" stroke-opacity="0.14"/>
-  <text x="880" y="106" fill="#E9F0F4" font-size="18" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">CommonGen  •  E2E  •  WikiBio</text>
+  <rect x="808" y="78" width="302" height="46" rx="23" fill="#EFF4F6" fill-opacity="0.10" stroke="#EFF4F6" stroke-opacity="0.14"/>
+  <text x="832" y="107" fill="#E9F0F4" font-size="16" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Datasets: CommonGen  •  E2E NLG  •  WikiBio</text>
 
-  <rect x="850" y="142" width="196" height="40" rx="20" fill="#F1B35A" fill-opacity="0.12" stroke="#F1B35A" stroke-opacity="0.32"/>
-  <text x="878" y="167" fill="#F8D7A2" font-size="17" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Benchmark + manuscript</text>
+  <rect x="808" y="142" width="250" height="40" rx="20" fill="#F1B35A" fill-opacity="0.12" stroke="#F1B35A" stroke-opacity="0.32"/>
+  <text x="834" y="167" fill="#F8D7A2" font-size="16" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">Benchmark and manuscript</text>
 </svg>

@@ -69,6 +69,9 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--ess-threshold", type=float, default=0.5)
     bench.add_argument("--split-interval", type=int, default=12)
     bench.add_argument("--elite-fraction", type=float, default=0.2)
+    bench.add_argument("--lookahead-weight", type=float, default=0.8)
+    bench.add_argument("--lookahead-depth", type=int, default=10)
+    bench.add_argument("--lookahead-interval", type=int, default=4)
     bench.add_argument("--log-interval", type=int, default=50)
 
     figs = sub.add_parser("figures")
@@ -152,6 +155,9 @@ def main() -> None:
             ess_threshold=args.ess_threshold,
             split_interval=args.split_interval,
             elite_fraction=args.elite_fraction,
+            lookahead_weight=args.lookahead_weight,
+            lookahead_depth=args.lookahead_depth,
+            lookahead_interval=args.lookahead_interval,
             random_seed=args.seed,
             log_interval=args.log_interval,
         )

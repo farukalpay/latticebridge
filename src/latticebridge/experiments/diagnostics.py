@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 import re
-import textwrap
 import unicodedata
 from pathlib import Path
 
@@ -46,12 +45,11 @@ def _latex_escape(text: str) -> str:
     return "".join(replacements.get(char, char) for char in text)
 
 
-def _clip_text(text: str, width: int = 92) -> str:
+def _clean_text(text: str) -> str:
     compact = _normalize_ws(text)
     if not compact:
         return "-"
-    compact = unicodedata.normalize("NFKD", compact).encode("ascii", "ignore").decode("ascii")
-    return textwrap.shorten(compact, width=width, placeholder=" ...")
+    return unicodedata.normalize("NFKD", compact).encode("ascii", "ignore").decode("ascii")
 
 
 def _load_task_lookup(
@@ -118,39 +116,43 @@ def _scenario_bucket(record: dict[str, object]) -> str:
     return "near_miss"
 
 
+def _quality_score(record: dict[str, object]) -> float:
+    return 0.5 * (float(record["smc_rouge_l"]) + float(record["smc_token_f1"]))
+
+
 def _scenario_rank(record: dict[str, object]) -> tuple[float, ...]:
     scenario = str(record["scenario"])
     if scenario == "exact_lift":
         return (
-            float(record["smc_rouge_l"]),
-            float(record["smc_token_f1"]),
+            _quality_score(record),
+            float(record["smc_coverage"]),
             float(record["coverage_gain"]),
             float(record["acceptance_mass"]),
         )
     if scenario == "coverage_lift":
         return (
+            _quality_score(record),
             float(record["coverage_gain"]),
-            float(record["smc_rouge_l"]),
-            float(record["smc_token_f1"]),
+            float(record["smc_coverage"]),
+            float(record["acceptance_mass"]),
         )
     if scenario == "low_mass_success":
         return (
+            _quality_score(record),
             -float(record["acceptance_mass"]),
-            float(record["smc_rouge_l"]),
-            float(record["smc_token_f1"]),
+            float(record["coverage_gain"]),
         )
     return (
-        float(record["smc_rouge_l"]),
-        float(record["smc_token_f1"]),
-        -float(record["acceptance_mass"]),
+        _quality_score(record),
         float(record["coverage_gain"]),
+        -float(record["acceptance_mass"]),
     )
 
 
 def _select_examples(records: list[dict[str, object]], per_dataset_examples: int) -> list[dict[str, object]]:
     scenario_limits = {
         "exact_lift": 3,
-        "coverage_lift": 3,
+        "coverage_lift": 2,
         "low_mass_success": 1,
         "near_miss": 1,
     }
@@ -176,8 +178,9 @@ def _select_examples(records: list[dict[str, object]], per_dataset_examples: int
         remaining = [record for record in records if (record["dataset_name"], record["example_id"]) not in seen_keys]
         remaining.sort(
             key=lambda record: (
-                float(record["coverage_gain"]),
+                _quality_score(record),
                 int(bool(record["smc_success"])) - int(bool(record["baseline_success"])),
+                float(record["smc_coverage"]),
                 float(record["acceptance_mass"]),
             ),
             reverse=True,
@@ -194,8 +197,9 @@ def _select_examples(records: list[dict[str, object]], per_dataset_examples: int
         remaining = [record for record in records if (record["dataset_name"], record["example_id"]) not in seen_keys]
         remaining.sort(
             key=lambda record: (
-                float(record["coverage_gain"]),
+                _quality_score(record),
                 int(bool(record["smc_success"])) - int(bool(record["baseline_success"])),
+                float(record["smc_coverage"]),
                 float(record["acceptance_mass"]),
             ),
             reverse=True,
@@ -245,9 +249,11 @@ def _record_for_example(
 def _render_latex(records_by_dataset: dict[str, list[dict[str, object]]]) -> str:
     lines = [
         r"\begingroup",
-        r"\small",
-        r"\setlength{\tabcolsep}{4pt}",
-        r"\renewcommand{\arraystretch}{1.14}",
+        r"\scriptsize",
+        r"\setlength{\tabcolsep}{3pt}",
+        r"\setlength{\LTleft}{0pt}",
+        r"\setlength{\LTright}{0pt}",
+        r"\renewcommand{\arraystretch}{1.08}",
     ]
     for dataset_name, rows in records_by_dataset.items():
         label = _latex_escape(DATASET_LABELS.get(dataset_name, dataset_name))
@@ -255,7 +261,7 @@ def _render_latex(records_by_dataset: dict[str, list[dict[str, object]]]) -> str
             [
                 "",
                 rf"\subsection*{{{label}}}",
-                r"\begin{longtable}{>{\raggedright\arraybackslash}p{0.11\textwidth}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.24\textwidth}}",
+                r"\begin{longtable}{>{\raggedright\arraybackslash}p{0.09\textwidth}>{\raggedright\arraybackslash}p{0.15\textwidth}>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}}",
                 r"\toprule",
                 r"Case & Anchors & Metrics & Baseline & LatticeBridge \\",
                 r"\midrule",
@@ -270,13 +276,14 @@ def _render_latex(records_by_dataset: dict[str, list[dict[str, object]]]) -> str
             case_label = _latex_escape(SCENARIO_LABELS.get(str(row["scenario"]), str(row["scenario"])))
             anchors = _latex_escape(", ".join(str(value) for value in row["anchors"]))
             metrics = _latex_escape(
-                f"cov {row['baseline_coverage']:.2f}->{row['smc_coverage']:.2f}; "
-                f"r-l {row['baseline_rouge_l']:.2f}->{row['smc_rouge_l']:.2f}; "
+                f"cov {row['baseline_coverage']:.2f} to {row['smc_coverage']:.2f}; "
+                f"RL {row['baseline_rouge_l']:.2f} to {row['smc_rouge_l']:.2f}; "
                 f"mass {row['acceptance_mass']:.2f}"
             )
-            baseline_text = _latex_escape(_clip_text(str(row["baseline_text"])))
-            smc_text = _latex_escape(_clip_text(str(row["smc_text"])))
+            baseline_text = _latex_escape(_clean_text(str(row["baseline_text"])))
+            smc_text = _latex_escape(_clean_text(str(row["smc_text"])))
             lines.append(rf"{case_label} & {anchors} & {metrics} & {baseline_text} & {smc_text} \\")
+            lines.append(r"\midrule")
         lines.extend([r"\bottomrule", r"\end{longtable}"])
     lines.append(r"\endgroup")
     return "\n".join(lines) + "\n"
