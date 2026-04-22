@@ -1,7 +1,5 @@
 # LatticeBridge
 
-![LatticeBridge banner](assets/latticebridge-banner.svg)
-
 LatticeBridge studies **faithful structured generation as a rare-event sequential inference problem**. The repository targets the regime in which a conditional language model can usually produce fluent text, but the probability mass assigned to continuations that satisfy several input-derived anchors at once is small. It implements a compact end-to-end stack for that regime:
 
 - a reusable **surface-automaton** constraint layer
