@@ -4,7 +4,7 @@ LatticeBridge studies **faithful structured generation as a rare-event sequentia
 
 - a reusable **surface-automaton** constraint layer
 - a compact **prefix language model** for structured-to-text generation
-- a **twisted sequential Monte Carlo** decoder with resampling and multilevel splitting
+- a **support-aware twisted sequential Monte Carlo** decoder with resampling and multilevel splitting
 - a three-dataset benchmark over **CommonGen**, **E2E NLG**, and **WikiBio**
 - a manuscript, figures, diagnostics tables, and runnable benchmark artefacts
 
@@ -22,6 +22,8 @@ Each task uses up to three input-derived anchors that are attested in at least o
 
 - exact anchor satisfaction
 - mean anchor coverage
+- mean source coverage over the full phrase set exposed by each source instance
+- source-intrusion counts for values copied from other source instances
 - ROUGE-L and token-level overlap
 - runtime per example
 - particle diagnostics such as ESS, acceptance mass, and resampling count
@@ -39,36 +41,36 @@ Final aggregate metrics are written to:
 
 ### CommonGen
 
-| Method | Success | Coverage | ROUGE-L | Runtime (s) |
-| --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.000 | 0.025 | 0.222 | 0.027 |
-| Beam filter | 0.000 | 0.036 | 0.183 | 0.082 |
-| Best-of-16 ancestral | 0.000 | 0.016 | 0.169 | 0.697 |
-| Twisted SMC | **0.648** | **0.859** | 0.217 | 0.403 |
+| Method | Success | Coverage | Source cov. | Intrusion | ROUGE-L | Runtime (s) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Greedy | 0.000 | 0.025 | 0.029 | 1.149 | 0.222 | 0.027 |
+| Beam filter | 0.000 | 0.060 | 0.072 | 0.494 | 0.192 | 0.084 |
+| Best-of-16 ancestral | 0.000 | 0.111 | 0.122 | 0.303 | 0.173 | 0.709 |
+| Twisted SMC | **0.758** | **0.908** | **0.772** | **0.226** | 0.240 | 0.498 |
 
 ### E2E NLG
 
-| Method | Success | Coverage | ROUGE-L | Runtime (s) |
-| --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.149 | 0.561 | 0.434 | 0.060 |
-| Beam filter | 0.252 | 0.611 | **0.442** | 0.214 |
-| Best-of-16 ancestral | 0.370 | 0.601 | 0.376 | 0.660 |
-| Twisted SMC | **0.397** | **0.747** | 0.282 | 0.520 |
+| Method | Success | Coverage | Source cov. | Intrusion | ROUGE-L | Runtime (s) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Greedy | 0.149 | 0.561 | 0.508 | 1.334 | 0.434 | 0.064 |
+| Beam filter | 0.252 | 0.664 | 0.604 | 1.075 | **0.455** | 0.230 |
+| Best-of-16 ancestral | 0.391 | 0.769 | **0.628** | 1.362 | 0.370 | 0.728 |
+| Twisted SMC | **0.473** | **0.774** | 0.525 | **0.926** | 0.286 | 0.667 |
 
 ### WikiBio
 
-| Method | Success | Coverage | ROUGE-L | Runtime (s) |
-| --- | ---: | ---: | ---: | ---: |
-| Greedy | 0.000 | 0.022 | **0.201** | 0.150 |
-| Beam filter | 0.000 | 0.021 | 0.178 | 0.324 |
-| Best-of-16 ancestral | 0.003 | 0.023 | 0.163 | 0.762 |
-| Twisted SMC | **0.019** | **0.209** | 0.128 | 0.790 |
+| Method | Success | Coverage | Source cov. | Intrusion | ROUGE-L | Runtime (s) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Greedy | 0.000 | 0.022 | 0.017 | 12.383 | **0.201** | 0.146 |
+| Beam filter | 0.000 | 0.025 | 0.023 | 7.583 | 0.181 | 0.352 |
+| Best-of-16 ancestral | 0.002 | 0.081 | 0.062 | 7.061 | 0.165 | 0.841 |
+| Twisted SMC | **0.023** | **0.207** | **0.065** | **6.332** | 0.128 | 0.833 |
 
 The benchmark exposes a consistent operating pattern:
 
 - on CommonGen, twisted SMC is the only tested decoder with substantial exact success
-- on E2E NLG, twisted SMC gives the best exact success and the widest coverage margin
-- on WikiBio, exact satisfaction remains difficult for all methods, but twisted SMC still lifts mean coverage by an order of magnitude over the greedy baseline
+- on E2E NLG, twisted SMC gives the best exact success and required coverage while reducing source intrusion relative to the tested sampling baselines
+- on WikiBio, exact satisfaction remains difficult for all methods, but twisted SMC still lifts mean coverage and reduces source intrusion relative to greedy decoding
 
 ## Quick Start
 
@@ -125,6 +127,7 @@ PYTHONPATH=src python3 -m latticebridge.cli benchmark \
   --ess-threshold 0.5 \
   --split-interval 12 \
   --elite-fraction 0.2 \
+  --support-scale 0.4 \
   --seed 13 \
   --device mps \
   --log-interval 50
@@ -155,7 +158,9 @@ PYTHONPATH=src python3 -m latticebridge.cli diagnostics \
   --per-dataset-examples 8
 ```
 
-### 6. Run the synthetic rare-event stress probes
+### 6. Optional local stress probes
+
+The structured benchmark above is the manuscript benchmark. The synthetic launcher is kept only for checking local particle-system scaling and accelerator stability.
 
 ```bash
 python3 latticebridge_synthetic_lab.py \
@@ -193,10 +198,9 @@ python3 latticebridge_synthetic_lab.py \
 ## Repository Layout
 
 ```text
-assets/                     README visuals
 artifacts/                  tokenizer and checkpoint reports
 data/manifests/             dataset staging manifests
-paper/                      manuscript source and bibliography
+paper/                      manuscript source with embedded references
 results/                    benchmark summaries, diagnostics, and figures
 src/latticebridge/          reusable library code
 tests/                      lightweight regression tests

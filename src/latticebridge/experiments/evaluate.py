@@ -101,9 +101,10 @@ def run_benchmarks(
     ess_threshold: float = 0.5,
     split_interval: int = 12,
     elite_fraction: float = 0.2,
-    lookahead_weight: float = 0.8,
-    lookahead_depth: int = 10,
-    lookahead_interval: int = 4,
+    support_scale: float = 0.4,
+    lookahead_weight: float = 0.0,
+    lookahead_depth: int = 0,
+    lookahead_interval: int = 0,
     random_seed: int | None = None,
     log_interval: int = 0,
 ) -> dict[str, object]:
@@ -132,6 +133,7 @@ def run_benchmarks(
         "ess_threshold": ess_threshold,
         "split_interval": split_interval,
         "elite_fraction": elite_fraction,
+        "support_scale": support_scale,
         "lookahead_weight": lookahead_weight,
         "lookahead_depth": lookahead_depth,
         "lookahead_interval": lookahead_interval,
@@ -139,7 +141,7 @@ def run_benchmarks(
         "log_interval": log_interval,
         "device": device.type,
         "constraint_selection": "empirical_source_idf_attested_in_reference",
-        "candidate_selection": "accepting_then_log_score_then_rouge_l",
+        "candidate_selection": "accepting_then_required_coverage_then_source_coverage_then_source_intrusion_then_log_score_then_rouge_l",
     }
 
     results: list[dict[str, object]] = []
@@ -187,6 +189,7 @@ def run_benchmarks(
                         split_interval=split_interval,
                         elite_fraction=elite_fraction,
                         temperature=smc_temperature,
+                        support_scale=support_scale,
                         lookahead_weight=lookahead_weight,
                         lookahead_depth=lookahead_depth,
                         lookahead_interval=lookahead_interval,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 import math
+import re
 import time
 from collections import Counter
 
@@ -13,6 +14,11 @@ from latticebridge.models.prefix_lm import PrefixLanguageModel
 from latticebridge.models.tokenizer import LatticeTokenizer
 
 
+CONTENT_ALPHA_MIN_CHARS = 3
+HIGH_FREQUENCY_TERM_FRACTION = 0.25
+MIN_HIGH_FREQUENCY_DOCUMENTS = 5
+
+
 @dataclass
 class BenchmarkTask:
     dataset_name: str
@@ -20,6 +26,8 @@ class BenchmarkTask:
     source_text: str
     target_text: str
     references: list[str]
+    source_phrases: list[str]
+    contrast_terms: list[str]
     required_phrases: list[str]
 
 
@@ -48,7 +56,17 @@ def build_benchmark_tasks(
     max_anchors: int = 3,
     min_anchors: int = 2,
 ) -> list[BenchmarkTask]:
+    def phrase_terms(text: str) -> set[str]:
+        terms = set()
+        for match in re.finditer(r"[A-Za-z0-9]+", text.lower()):
+            term = match.group(0)
+            if term.isdigit() or len(term) >= CONTENT_ALPHA_MIN_CHARS:
+                terms.add(term)
+        return terms
+
     phrase_document_frequency: Counter[str] = Counter()
+    corpus_term_document_frequency: Counter[str] = Counter()
+    candidate_terms: set[str] = set()
     document_count = 0
     for record in records:
         normalized_candidates = {
@@ -59,7 +77,16 @@ def build_benchmark_tasks(
         if not normalized_candidates:
             continue
         phrase_document_frequency.update(normalized_candidates)
+        candidate_terms.update(*(phrase_terms(phrase) for phrase in record.candidate_phrases))
+        record_terms = phrase_terms(" ".join([record.source_text, record.target_text, *record.references]))
+        corpus_term_document_frequency.update(record_terms)
         document_count += 1
+
+    high_frequency_terms = {
+        term
+        for term, count in corpus_term_document_frequency.items()
+        if count >= max(MIN_HIGH_FREQUENCY_DOCUMENTS, int(HIGH_FREQUENCY_TERM_FRACTION * max(1, document_count)))
+    }
 
     def information_score(normalized_phrase: str) -> float:
         document_frequency = phrase_document_frequency.get(normalized_phrase, 0)
@@ -71,8 +98,13 @@ def build_benchmark_tasks(
         normalized_refs = [text.lower() for text in reference_texts]
         feasible: list[tuple[float, str, str]] = []
         seen: set[str] = set()
+        source_phrases: list[str] = []
+        source_seen: set[str] = set()
         for phrase in record.candidate_phrases:
             normalized_phrase = phrase.lower().strip()
+            if normalized_phrase and normalized_phrase not in source_seen:
+                source_phrases.append(phrase)
+                source_seen.add(normalized_phrase)
             if normalized_phrase and normalized_phrase not in seen and any(normalized_phrase in ref for ref in normalized_refs):
                 feasible.append((information_score(normalized_phrase), normalized_phrase, phrase))
                 seen.add(normalized_phrase)
@@ -81,6 +113,8 @@ def build_benchmark_tasks(
         feasible.sort(key=lambda item: (-item[0], item[1]))
         ordered_phrases = [phrase for _, _, phrase in feasible]
         required_phrases = ordered_phrases if max_anchors <= 0 else ordered_phrases[:max_anchors]
+        source_terms = set().union(*(phrase_terms(phrase) for phrase in source_phrases)) if source_phrases else set()
+        contrast_terms = sorted((candidate_terms - source_terms) - high_frequency_terms)
         tasks.append(
             BenchmarkTask(
                 dataset_name=record.dataset_name,
@@ -88,6 +122,8 @@ def build_benchmark_tasks(
                 source_text=record.source_text,
                 target_text=record.target_text,
                 references=reference_texts,
+                source_phrases=source_phrases,
+                contrast_terms=contrast_terms,
                 required_phrases=required_phrases,
             )
         )
@@ -119,6 +155,19 @@ def _coverage(tokenizer: LatticeTokenizer, text: str, required_phrases: list[str
     return hit_count / len(required_phrases)
 
 
+def _source_intrusion(text: str, contrast_terms: list[str]) -> float:
+    if not contrast_terms:
+        return 0.0
+    generated_terms = {
+        match.group(0).lower()
+        for match in re.finditer(r"[A-Za-z0-9]+", text)
+        if match.group(0).isdigit() or len(match.group(0)) >= CONTENT_ALPHA_MIN_CHARS
+    }
+    if not generated_terms:
+        return 0.0
+    return float(len(generated_terms.intersection(contrast_terms)))
+
+
 def _candidate_result(
     method: str,
     task: BenchmarkTask,
@@ -130,7 +179,12 @@ def _candidate_result(
 ) -> GenerationResult:
     text = _decode_generated(tokenizer, token_ids)
     coverage = _coverage(tokenizer, text, task.required_phrases)
+    source_coverage = _coverage(tokenizer, text, task.source_phrases)
+    source_intrusion = _source_intrusion(text, task.contrast_terms)
     references = task.references or [task.target_text]
+    merged_metadata = dict(metadata or {})
+    merged_metadata["source_coverage"] = source_coverage
+    merged_metadata["source_intrusion"] = source_intrusion
     return GenerationResult(
         method=method,
         dataset_name=task.dataset_name,
@@ -142,12 +196,34 @@ def _candidate_result(
         token_f1=token_f1(text, references),
         log_score=log_score,
         runtime_seconds=runtime_seconds,
-        metadata=metadata or {},
+        metadata=merged_metadata,
     )
 
 
-def _selection_key(result: GenerationResult) -> tuple[int, float, float]:
-    return (int(result.success), result.log_score, result.rouge_l)
+def _selection_key(result: GenerationResult) -> tuple[int, float, float, float, float, float]:
+    source_coverage = float(result.metadata.get("source_coverage", 0.0))
+    source_intrusion = float(result.metadata.get("source_intrusion", 0.0))
+    return (int(result.success), result.coverage, source_coverage, -source_intrusion, result.log_score, result.rouge_l)
+
+
+def _source_token_support(
+    tokenizer: LatticeTokenizer,
+    phrases: list[str],
+    *,
+    device: torch.device,
+) -> torch.Tensor:
+    counts = torch.zeros(tokenizer.vocab_size, dtype=torch.float32, device=device)
+    for phrase in phrases:
+        token_ids = tokenizer.encode(phrase)
+        if not token_ids:
+            continue
+        counts[token_ids[0]] += 1.0
+    if float(counts.sum().item()) <= 0.0:
+        return torch.zeros(tokenizer.vocab_size, dtype=torch.float32, device=device)
+    support = counts / counts.sum()
+    uniform = torch.full_like(support, 1.0 / float(tokenizer.vocab_size))
+    support = 0.98 * support + 0.02 * uniform
+    return torch.log(support) - math.log(1.0 / float(tokenizer.vocab_size))
 
 
 def _remaining_suffix_tokens(
@@ -251,77 +327,6 @@ def _lookahead_values(
             device=device,
         )
     return values
-
-
-def _proposal_lookahead_bonus(
-    model: PrefixLanguageModel,
-    tokenizer: LatticeTokenizer,
-    automaton: SurfaceProductAutomaton,
-    states: torch.Tensor,
-    hidden: torch.Tensor,
-    next_states: torch.Tensor,
-    current_lookahead: torch.Tensor,
-    active: torch.Tensor,
-    *,
-    lookahead_depth: int,
-    eos_id: int,
-    device: torch.device,
-    suffix_cache: dict[int, list[list[int]]],
-) -> torch.Tensor:
-    bonus = torch.zeros((states.shape[0], next_states.shape[1]), dtype=torch.float32, device=device)
-    if lookahead_depth <= 0 or not automaton.phrases or not bool(active.any().item()):
-        return bonus
-
-    candidate_rows: list[int] = []
-    candidate_tokens: list[int] = []
-    candidate_states: list[int] = []
-    candidate_hidden: list[torch.Tensor] = []
-    for row, state_id in enumerate(states.tolist()):
-        if not bool(active[row].item()):
-            continue
-        suffixes = _remaining_suffix_tokens(
-            tokenizer,
-            automaton,
-            int(state_id),
-            lookahead_depth=lookahead_depth,
-            cache=suffix_cache,
-        )
-        if not suffixes:
-            continue
-        candidate_token_ids = sorted({tokens[0] for tokens in suffixes if tokens})
-        for token_id in candidate_token_ids:
-            candidate_rows.append(row)
-            candidate_tokens.append(token_id)
-            candidate_states.append(int(next_states[row, token_id].item()))
-            candidate_hidden.append(hidden[:, row : row + 1, :])
-
-    if not candidate_tokens:
-        return bonus
-
-    token_tensor = torch.tensor(candidate_tokens, dtype=torch.long, device=device)
-    hidden_tensor = torch.cat(candidate_hidden, dim=1)
-    next_logits, next_hidden = model.step(token_tensor, hidden_tensor)
-
-    for batch_index, (row, token_id, state_id) in enumerate(zip(candidate_rows, candidate_tokens, candidate_states)):
-        suffixes = _remaining_suffix_tokens(
-            tokenizer,
-            automaton,
-            state_id,
-            lookahead_depth=lookahead_depth,
-            cache=suffix_cache,
-        )
-        next_value = 0.0
-        if suffixes:
-            next_value = _truncated_anchor_completion_score(
-                model,
-                next_hidden[:, batch_index : batch_index + 1, :],
-                next_logits[batch_index : batch_index + 1],
-                suffixes,
-                eos_id=eos_id,
-                device=device,
-            )
-        bonus[row, token_id] = next_value - current_lookahead[row]
-    return bonus
 
 
 def greedy_decode(
@@ -499,6 +504,7 @@ def twisted_smc_decode(
     split_interval: int,
     elite_fraction: float,
     temperature: float,
+    support_scale: float,
     lookahead_weight: float,
     lookahead_depth: int,
     lookahead_interval: int,
@@ -525,6 +531,7 @@ def twisted_smc_decode(
     transitions = automaton.transitions.to(device)
     distances = automaton.distances.to(device)
     accepting = automaton.accepting.to(device)
+    source_support = _source_token_support(tokenizer, task.source_phrases, device=device)
 
     states = torch.zeros(particles, dtype=torch.long, device=device)
     done = torch.zeros(particles, dtype=torch.bool, device=device)
@@ -560,24 +567,15 @@ def twisted_smc_decode(
         next_distance = distances.index_select(0, next_states.reshape(-1)).reshape(particles, -1)
         progress = current_distance.unsqueeze(-1) - next_distance
         guidance = twist_scale * progress
-        proposal_lookahead = _proposal_lookahead_bonus(
-            model,
-            tokenizer,
-            automaton,
-            states,
-            hidden,
-            next_states,
-            current_lookahead,
-            active_before,
-            lookahead_depth=lookahead_depth,
-            eos_id=eos_id,
-            device=device,
-            suffix_cache=suffix_cache,
-        )
 
         scaled_logits = last_logits / max(temperature, 1e-4)
         base_logprob = torch.log_softmax(scaled_logits, dim=-1)
-        proposal_logprob = torch.log_softmax(scaled_logits + guidance + lookahead_weight * proposal_lookahead, dim=-1)
+        proposal_logprob = torch.log_softmax(
+            scaled_logits
+            + guidance
+            + support_scale * source_support.unsqueeze(0),
+            dim=-1,
+        )
 
         sampled = torch.full((particles,), eos_id, dtype=torch.long, device=device)
         if (~done).any():
@@ -670,12 +668,12 @@ def twisted_smc_decode(
         candidate_distances = distances.index_select(0, states).index_select(0, candidate_indices)
         best_distance = torch.min(candidate_distances)
         candidate_indices = candidate_indices[candidate_distances == best_distance]
-    chosen_idx = int(candidate_indices[torch.argmax(log_weights.index_select(0, candidate_indices))].item())
 
     metadata = {
         "particles": particles,
         "lambda_weight": lambda_weight,
         "twist_scale": twist_scale,
+        "support_scale": support_scale,
         "lookahead_weight": lookahead_weight,
         "lookahead_depth": lookahead_depth,
         "lookahead_interval": lookahead_interval,
@@ -684,13 +682,18 @@ def twisted_smc_decode(
         "acceptance_mass": float(probs[accepting_mask].sum().item()),
         "steps_run": steps_run,
     }
-    result = _candidate_result(
-        "twisted_smc",
-        task,
-        tokenizer,
-        trajectories[chosen_idx].tolist(),
-        float(log_weights[chosen_idx].item()),
-        time.perf_counter() - start,
-        metadata=metadata,
-    )
+    candidates = [
+        _candidate_result(
+            "twisted_smc",
+            task,
+            tokenizer,
+            trajectories[int(index.item())].tolist(),
+            float(log_weights[int(index.item())].item()),
+            0.0,
+            metadata=metadata,
+        )
+        for index in candidate_indices
+    ]
+    result = max(candidates, key=_selection_key)
+    result.runtime_seconds = time.perf_counter() - start
     return result

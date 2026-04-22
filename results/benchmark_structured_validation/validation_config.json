@@ -14,9 +14,13 @@
   "ess_threshold": 0.5,
   "split_interval": 12,
   "elite_fraction": 0.2,
+  "support_scale": 0.4,
+  "lookahead_weight": 0.0,
+  "lookahead_depth": 0,
+  "lookahead_interval": 0,
   "random_seed": 13,
-  "log_interval": 50,
+  "log_interval": 100,
   "device": "mps",
   "constraint_selection": "empirical_source_idf_attested_in_reference",
-  "candidate_selection": "accepting_then_log_score_then_rouge_l"
+  "candidate_selection": "accepting_then_required_coverage_then_source_coverage_then_source_intrusion_then_log_score_then_rouge_l"
 }

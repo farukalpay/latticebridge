@@ -72,7 +72,7 @@ def _render_dataset_bars(summary: dict, output_dir: Path) -> list[str]:
 
 def _render_frontier(summary: dict, output_dir: Path) -> str:
     dataset_names = list(summary.keys())
-    fig, axes = plt.subplots(1, len(dataset_names), figsize=(4.2 * len(dataset_names), 3.8), sharey=True)
+    fig, axes = plt.subplots(1, len(dataset_names), figsize=(4.9 * len(dataset_names), 4.3), sharey=True)
     if len(dataset_names) == 1:
         axes = [axes]
     method_styles = {
@@ -92,12 +92,12 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
             ax.scatter(
                 metrics["runtime_seconds"],
                 metrics["coverage"],
-                s=92,
+                s=118,
                 color=color,
                 marker=marker,
                 alpha=0.9,
                 edgecolor="white",
-                linewidth=0.8,
+                linewidth=0.95,
             )
             ax.errorbar(
                 metrics["runtime_seconds"],
@@ -117,11 +117,12 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
                     ax.scatter([], [], s=92, color=color, marker=marker, label=METHOD_LABELS.get(method_name, method_name))
                 )
         ax.set_xlabel("Runtime per example (s)")
-        ax.set_title(DATASET_LABELS.get(dataset_name, dataset_name))
+        ax.set_title(DATASET_LABELS.get(dataset_name, dataset_name), fontsize=12)
         ax.set_xscale("log")
         ax.set_xlim(min(runtimes) * 0.75, max(runtimes) * 1.85)
         ax.set_ylim(0.0, 1.0)
-        ax.grid(alpha=0.25, linestyle="--")
+        ax.grid(alpha=0.22, linestyle="--", linewidth=0.8)
+        ax.tick_params(labelsize=10)
     axes[0].set_ylabel("Anchor coverage")
     if legend_handles:
         fig.legend(
@@ -130,6 +131,7 @@ def _render_frontier(summary: dict, output_dir: Path) -> str:
             bbox_to_anchor=(0.5, 1.08),
             ncol=min(4, len(legend_handles)),
             frameon=False,
+            fontsize=10,
         )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     path = output_dir / "coverage_runtime_frontier.png"
